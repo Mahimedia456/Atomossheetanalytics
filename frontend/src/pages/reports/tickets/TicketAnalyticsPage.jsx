@@ -1,0 +1,361 @@
+import { useEffect, useMemo, useState } from "react";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+
+import ChartCard from "../../../components/ChartCard";
+import DataTable from "../../../components/DataTable";
+import MetricCard from "../../../components/MetricCard";
+import ReportHeader from "../../../components/ReportHeader";
+import { fetchTicketReport, syncTickets } from "../../../services/ticketApi";
+import TicketFilters from "./TicketFilters";
+
+const initialFilters = {
+  search: "",
+  year: "",
+  month: "",
+  fromDate: "",
+  toDate: "",
+  region: "",
+  tse: "",
+  submissionStatus: "",
+  product: "",
+  category: "",
+};
+
+const columns = [
+  { key: "ticketNumber", label: "Ticket Number" },
+  { key: "date", label: "Date" },
+  { key: "tse", label: "TSE / Agent" },
+  { key: "region", label: "Region" },
+  { key: "internal", label: "Internal" },
+  { key: "subject", label: "Subject" },
+  { key: "product", label: "Product" },
+  { key: "category", label: "Category" },
+  { key: "comment", label: "Comment" },
+  { key: "featureRequestSummary", label: "Feature Request Summary" },
+];
+
+const chartColors = [
+  "#00dcc5",
+  "#22c55e",
+  "#38bdf8",
+  "#eab308",
+  "#f97316",
+  "#a855f7",
+  "#ef4444",
+  "#14b8a6",
+  "#f43f5e",
+  "#84cc16",
+  "#06b6d4",
+  "#f59e0b",
+];
+
+function DarkTooltip({ active, payload, label }) {
+  if (!active || !payload?.length) return null;
+
+  const name = label || payload[0]?.name || "";
+  const value = payload[0]?.value ?? 0;
+
+  return (
+    <div className="rounded-xl border border-zinc-700 bg-black px-4 py-3 text-xs shadow-2xl">
+      <p className="font-black text-white">{name}</p>
+      <p className="mt-1 font-bold text-[#00dcc5]">Tickets: {value}</p>
+    </div>
+  );
+}
+
+function renderPieLabel(props) {
+  const { cx, cy, midAngle, outerRadius, name, value } = props;
+  const RADIAN = Math.PI / 180;
+  const radius = outerRadius + 20;
+  const x = cx + radius * Math.cos(-midAngle * RADIAN);
+  const y = cy + radius * Math.sin(-midAngle * RADIAN);
+
+  return (
+    <text
+      x={x}
+      y={y}
+      fill="#ffffff"
+      textAnchor={x > cx ? "start" : "end"}
+      dominantBaseline="central"
+      fontSize={12}
+      fontWeight={800}
+    >
+      {name}: {value}
+    </text>
+  );
+}
+
+export default function TicketAnalyticsPage() {
+  const [filters, setFilters] = useState(initialFilters);
+  const [report, setReport] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [error, setError] = useState("");
+  const [chartLimit, setChartLimit] = useState("10");
+
+  const analytics = report?.analytics || {};
+  const rows = report?.rows || [];
+  const options = report?.filters || {};
+  const filterKey = useMemo(() => JSON.stringify(filters), [filters]);
+
+  function limitChartData(data = []) {
+    if (chartLimit === "all") return data;
+    return data.slice(0, Number(chartLimit));
+  }
+
+  async function loadReport() {
+    setLoading(true);
+    setError("");
+
+    try {
+      const data = await fetchTicketReport({ ...filters, limit: 5000 });
+      setReport(data);
+    } catch (err) {
+      setError(err?.response?.data?.message || "Failed to load ticket report.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleSync() {
+    setSyncing(true);
+    setError("");
+
+    try {
+      await syncTickets();
+      await loadReport();
+    } catch (err) {
+      setError(err?.response?.data?.message || "Ticket sync failed.");
+    } finally {
+      setSyncing(false);
+    }
+  }
+
+  useEffect(() => {
+    loadReport();
+  }, [filterKey]);
+
+  function exportExcel() {
+    const exportRows = rows.map((row) => {
+      const cleanRow = {};
+      columns.forEach((column) => {
+        cleanRow[column.label] = row[column.key] ?? "";
+      });
+      return cleanRow;
+    });
+
+    const ws = XLSX.utils.json_to_sheet(exportRows);
+    const wb = XLSX.utils.book_new();
+
+    XLSX.utils.book_append_sheet(wb, ws, "Ticket Analytics");
+    XLSX.writeFile(wb, "ticket-analytics.xlsx");
+  }
+
+  function exportPdf() {
+    const doc = new jsPDF("landscape");
+
+    doc.text("Ticket Analytics Report", 14, 14);
+    doc.setFontSize(8);
+    doc.text(`Total Records: ${report?.total || rows.length}`, 14, 20);
+
+    autoTable(doc, {
+      startY: 26,
+      head: [columns.map((column) => column.label)],
+      body: rows.map((row) => columns.map((column) => row[column.key] || "-")),
+      styles: { fontSize: 6 },
+      headStyles: {
+        fillColor: [0, 220, 197],
+        textColor: [0, 0, 0],
+      },
+    });
+
+    doc.save("ticket-analytics.pdf");
+  }
+
+  const productData = limitChartData(analytics.byProduct || []);
+  const categoryData = limitChartData(analytics.byCategory || []);
+  const regionData = limitChartData(analytics.byRegion || []);
+  const tseData = limitChartData(analytics.byTse || []);
+
+  return (
+    <div className="space-y-6">
+   <ReportHeader
+  title="Ticket Analytics"
+  subtitle="Zendesk-style ticket analytics with date-wise, product-wise, category-wise, region-wise and TSE agent reporting."
+  syncedAt={report?.syncedAt}
+  loading={syncing}
+  onSync={handleSync}
+  onUnsync={() => {
+    setReport(null);
+    setError("");
+  }}
+  onExcel={exportExcel}
+  onPdf={exportPdf}
+/>
+
+      {error ? (
+        <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm font-bold text-red-200">
+          {error}
+        </div>
+      ) : null}
+
+      <TicketFilters
+        filters={filters}
+        setFilters={setFilters}
+        options={options}
+      />
+
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <MetricCard
+          label="Total Tickets"
+          value={analytics.totalTickets}
+          hint="Unique ticket count"
+        />
+        <MetricCard
+          label="Products"
+          value={(analytics.byProduct || []).filter((x) => x.name !== "Unknown").length}
+          hint="Product groups"
+        />
+        <MetricCard
+          label="Categories"
+          value={(analytics.byCategory || []).filter((x) => x.name !== "Unknown").length}
+          hint="Category groups"
+        />
+        <MetricCard
+          label="TSE Agents"
+          value={(analytics.byTse || []).filter((x) => x.name !== "Unknown").length}
+          hint="Agent count"
+        />
+      </section>
+
+      <section>
+        <ChartCard title="Date-wise Tickets" showLimit={false}>
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={analytics.byDate || []}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#222" />
+              <XAxis dataKey="name" stroke="#777" />
+              <YAxis stroke="#777" />
+              <Tooltip content={<DarkTooltip />} />
+              <Line
+                type="monotone"
+                dataKey="value"
+                stroke="#00dcc5"
+                strokeWidth={3}
+                dot={{ r: 3 }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </ChartCard>
+      </section>
+
+      <section className="grid gap-6 xl:grid-cols-2">
+        <ChartCard
+          title="Product-wise Tickets"
+          limit={chartLimit}
+          onLimitChange={setChartLimit}
+        >
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={productData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#222" />
+              <XAxis dataKey="name" stroke="#777" />
+              <YAxis stroke="#777" />
+              <Tooltip content={<DarkTooltip />} />
+              <Bar dataKey="value">
+                {productData.map((_, index) => (
+                  <Cell key={index} fill={chartColors[index % chartColors.length]} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartCard>
+
+        <ChartCard
+          title="Category-wise Tickets"
+          limit={chartLimit}
+          onLimitChange={setChartLimit}
+        >
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={categoryData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#222" />
+              <XAxis dataKey="name" stroke="#777" />
+              <YAxis stroke="#777" />
+              <Tooltip content={<DarkTooltip />} />
+              <Bar dataKey="value">
+                {categoryData.map((_, index) => (
+                  <Cell key={index} fill={chartColors[index % chartColors.length]} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartCard>
+
+        <ChartCard
+          title="Region-wise Tickets"
+          limit={chartLimit}
+          onLimitChange={setChartLimit}
+        >
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={regionData}
+                dataKey="value"
+                nameKey="name"
+                outerRadius={105}
+                label={renderPieLabel}
+              >
+                {regionData.map((_, index) => (
+                  <Cell key={index} fill={chartColors[index % chartColors.length]} />
+                ))}
+              </Pie>
+              <Tooltip content={<DarkTooltip />} />
+            </PieChart>
+          </ResponsiveContainer>
+        </ChartCard>
+
+        <ChartCard
+          title="TSE / Agent-wise Tickets"
+          limit={chartLimit}
+          onLimitChange={setChartLimit}
+        >
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={tseData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#222" />
+              <XAxis dataKey="name" stroke="#777" />
+              <YAxis stroke="#777" />
+              <Tooltip content={<DarkTooltip />} />
+              <Bar dataKey="value">
+                {tseData.map((_, index) => (
+                  <Cell key={index} fill={chartColors[index % chartColors.length]} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartCard>
+      </section>
+
+      <DataTable rows={rows} columns={columns} />
+
+      {loading ? (
+        <div className="fixed bottom-5 right-5 rounded-full border border-[#00dcc5]/30 bg-black px-4 py-2 text-xs font-black text-[#00dcc5]">
+          Loading report...
+        </div>
+      ) : null}
+    </div>
+  );
+}
