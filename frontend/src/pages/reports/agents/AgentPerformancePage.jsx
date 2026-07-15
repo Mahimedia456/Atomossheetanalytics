@@ -21,8 +21,6 @@ import {
 } from "recharts";
 
 import * as XLSX from "xlsx";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 
 import AgentFilters from "./AgentFilters";
 import AgentReportTable from "./AgentReportTable";
@@ -30,6 +28,7 @@ import AgentReportTable from "./AgentReportTable";
 import ChartCard from "../../../components/ChartCard";
 import MetricCard from "../../../components/MetricCard";
 import ReportHeader from "../../../components/ReportHeader";
+import { exportDashboardPdf } from "../../../utils/dashboardPdfExport";
 
 import {
   fetchAgentReport,
@@ -103,7 +102,10 @@ function DarkTooltip({
   }
 
   return (
-    <div className="rounded-xl border border-zinc-700 bg-black px-4 py-3 text-xs shadow-2xl">
+    <div
+      id="agent-performance-pdf-content"
+      className="rounded-xl border border-zinc-700 bg-black px-4 py-3 text-xs shadow-2xl"
+    >
       <p className="mb-2 font-black text-white">
         {label}
       </p>
@@ -444,132 +446,27 @@ export default function AgentPerformancePage() {
     );
   }
 
-  function exportPdf() {
-    if (!ticketRows.length) {
-      window.alert(
-        "No agent ticket data to export."
-      );
+  async function exportPdf() {
+    setError("");
 
-      return;
+    try {
+      await exportDashboardPdf({
+        rootId: "agent-performance-pdf-content",
+        title: "Agent Performance Dashboard",
+        subtitle:
+          "Resolution, satisfaction, response time, turnaround and SLA analytics",
+        filename: "agent-performance-dashboard",
+        recordCount:
+          report?.total ?? ticketRows.length,
+        syncedAt:
+          report?.syncedAt,
+      });
+    } catch (pdfError) {
+      setError(
+        pdfError?.message ||
+          "Unable to export dashboard PDF.",
+      );
     }
-
-    const document =
-      new jsPDF(
-        "landscape"
-      );
-
-    document.setFontSize(16);
-
-    document.text(
-      "Agent Ticket Performance Report",
-      14,
-      14
-    );
-
-    autoTable(document, {
-      startY: 22,
-
-      head: [
-        [
-          "Ticket",
-          "Agent",
-          "Created",
-          "Assigned",
-          "Solved",
-          "Status",
-          "Category",
-          "Rating",
-          "First Reply Min",
-          "Resolution Hr",
-          "Turnaround Hr",
-        ],
-      ],
-
-      body:
-        ticketRows.map(
-          (row) => [
-            row.ticketId ||
-              "-",
-
-            row.agentName ||
-              "Unknown",
-
-            row.createdDate ||
-              "-",
-
-            row.assignedDate ||
-              "-",
-
-            row.solvedDate ||
-              "-",
-
-            row.status ||
-              "-",
-
-            row.category ||
-              "-",
-
-            row.rating ||
-              "-",
-
-            Number.isFinite(
-              Number(
-                row.firstReplyMinutes
-              )
-            )
-              ? Number(
-                  row.firstReplyMinutes
-                ).toFixed(1)
-              : "-",
-
-            Number.isFinite(
-              Number(
-                row.firstResolutionMinutes
-              )
-            )
-              ? (
-                  Number(
-                    row.firstResolutionMinutes
-                  ) / 60
-                ).toFixed(1)
-              : "-",
-
-            Number.isFinite(
-              Number(
-                row.turnaroundMinutes
-              )
-            )
-              ? (
-                  Number(
-                    row.turnaroundMinutes
-                  ) / 60
-                ).toFixed(1)
-              : "-",
-          ]
-        ),
-
-      styles: {
-        fontSize: 6,
-      },
-
-      headStyles: {
-        fillColor: [
-          0,
-          220,
-          197,
-        ],
-
-        textColor: [
-          0,
-          0,
-          0,
-        ],
-      },
-    });
-
-    document.save(
-      "agent-ticket-performance.pdf"
-    );
   }
 
   const solvedData =
@@ -625,37 +522,54 @@ export default function AgentPerformancePage() {
     analytics.byCategory || [];
 
   return (
-    <div className="space-y-6">
-      <ReportHeader
-        title="Agent Performance"
-        subtitle="Agent ticket resolution, satisfaction, per-ticket response time, resolution time, turnaround and calculated SLA analytics."
-        syncedAt={
-          report?.syncedAt
-        }
-        loading={syncing}
-        onSync={handleSync}
-        onUnsync={
-          handleUnsync
-        }
-        onExcel={
-          exportExcel
-        }
-        onPdf={exportPdf}
-      />
+    <div
+      id="agent-performance-pdf-content"
+      className="space-y-6"
+    >
+      <div data-html2canvas-ignore="true">
+        <ReportHeader
+          title="Agent Performance"
+          // subtitle="Agent ticket resolution, satisfaction, per-ticket response time, resolution time, turnaround and calculated SLA analytics."
+          syncedAt={
+            report?.syncedAt
+          }
+          loading={syncing}
+          onSync={handleSync}
+          onUnsync={
+            handleUnsync
+          }
+          onExcel={
+            exportExcel
+          }
+          onPdf={exportPdf}
+        />
+      </div>
 
       {error ? (
-        <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm font-bold text-red-200">
+        <div data-html2canvas-ignore="true" className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm font-bold text-red-200">
           {error}
         </div>
       ) : null}
 
-      <AgentFilters
-        filters={filters}
-        setFilters={
-          setFilters
-        }
-        options={options}
-      />
+      <div data-html2canvas-ignore="true">
+
+        
+
+              <AgentFilters
+
+                filters={filters}
+
+                setFilters={
+
+                  setFilters
+
+                }
+
+                options={options}
+
+              />
+
+      </div>
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard
@@ -1383,12 +1297,20 @@ export default function AgentPerformancePage() {
         </ChartCard>
       </section>
 
-      <AgentReportTable
-        rows={agentSummary}
-      />
+      <div data-html2canvas-ignore="true">
+
+        
+
+              <AgentReportTable
+
+                rows={agentSummary}
+
+              />
+
+      </div>
 
       {loading ? (
-        <div className="fixed bottom-5 right-5 rounded-full border border-[#00dcc5]/30 bg-black px-4 py-2 text-xs font-black text-[#00dcc5]">
+        <div data-html2canvas-ignore="true" className="fixed bottom-5 right-5 rounded-full border border-[#00dcc5]/30 bg-black px-4 py-2 text-xs font-black text-[#00dcc5]">
           Loading agent performance...
         </div>
       ) : null}

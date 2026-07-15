@@ -16,12 +16,11 @@ import {
 } from "recharts";
 
 import * as XLSX from "xlsx";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 
 import ChartCard from "../../../components/ChartCard";
 import MetricCard from "../../../components/MetricCard";
 import ReportHeader from "../../../components/ReportHeader";
+import { exportDashboardPdf } from "../../../utils/dashboardPdfExport";
 
 import SatisfactionFilters from "./SatisfactionFilters";
 import SatisfactionReportTable from "./SatisfactionReportTable";
@@ -80,7 +79,10 @@ function DarkTooltip({
     item?.value ?? 0;
 
   return (
-    <div className="rounded-xl border border-zinc-700 bg-black px-4 py-3 text-xs shadow-2xl">
+    <div
+      id="satisfaction-pdf-content"
+      className="rounded-xl border border-zinc-700 bg-black px-4 py-3 text-xs shadow-2xl"
+    >
       <p className="font-black text-white">
         {name}
       </p>
@@ -297,120 +299,66 @@ export default function SatisfactionPage() {
     );
   }
 
-  function exportPdf() {
-    const doc =
-      new jsPDF(
-        "landscape"
+  async function exportPdf() {
+    setError("");
+
+    try {
+      await exportDashboardPdf({
+        rootId: "satisfaction-pdf-content",
+        title: "Satisfaction Analytics Dashboard",
+        subtitle:
+          "Customer satisfaction, rating, category and comment analytics",
+        filename: "satisfaction-analytics-dashboard",
+        recordCount:
+          report?.total ?? rows.length,
+        syncedAt:
+          report?.syncedAt,
+      });
+    } catch (pdfError) {
+      setError(
+        pdfError?.message ||
+          "Unable to export dashboard PDF.",
       );
-
-    doc.setFontSize(16);
-
-    doc.text(
-      "Satisfaction Analytics Report",
-      14,
-      14
-    );
-
-    doc.setFontSize(8);
-
-    doc.text(
-      `Total Records: ${
-        report?.total ||
-        rows.length
-      }`,
-      14,
-      20
-    );
-
-    autoTable(doc, {
-      startY: 26,
-
-      head: [
-        [
-          "Ticket ID",
-          "Category",
-          "Date",
-          "Comments",
-          "Rating",
-        ],
-      ],
-
-      body:
-        rows.map(
-          (row) => [
-            row.ticketId ||
-              "-",
-
-            row.category ||
-              "-",
-
-            row.date ||
-              "-",
-
-            row.comments ||
-              row.comment ||
-              "-",
-
-            row.rating ||
-              "-",
-          ]
-        ),
-
-      styles: {
-        fontSize: 6,
-      },
-
-      columnStyles: {
-        3: {
-          cellWidth: 110,
-        },
-      },
-
-      headStyles: {
-        fillColor: [
-          0,
-          220,
-          197,
-        ],
-
-        textColor: [
-          0,
-          0,
-          0,
-        ],
-      },
-    });
-
-    doc.save(
-      "satisfaction-analytics.pdf"
-    );
+    }
   }
 
   return (
     <div className="min-w-0 max-w-full space-y-6 overflow-x-hidden">
-      <ReportHeader
-        title="Satisfaction Analytics"
-        subtitle="Google Sheet customer satisfaction analytics with date-wise, category-wise, rating and comment reporting."
-        syncedAt={
-          report?.syncedAt
-        }
-        loading={syncing}
-        onSync={handleSync}
-        onExcel={exportExcel}
-        onPdf={exportPdf}
-      />
+      <div data-html2canvas-ignore="true">
+        <ReportHeader
+          title="Satisfaction Analytics"
+          // subtitle="Google Sheet customer satisfaction analytics with date-wise, category-wise, rating and comment reporting."
+          syncedAt={
+            report?.syncedAt
+          }
+          loading={syncing}
+          onSync={handleSync}
+          onExcel={exportExcel}
+          onPdf={exportPdf}
+        />
+      </div>
 
       {error ? (
-        <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm font-bold text-red-200">
+        <div data-html2canvas-ignore="true" className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm font-bold text-red-200">
           {error}
         </div>
       ) : null}
 
-      <SatisfactionFilters
-        filters={filters}
-        setFilters={setFilters}
-        options={options}
-      />
+      <div data-html2canvas-ignore="true">
+
+        
+
+              <SatisfactionFilters
+
+                filters={filters}
+
+                setFilters={setFilters}
+
+                options={options}
+
+              />
+
+      </div>
 
       <section className="grid min-w-0 gap-4 md:grid-cols-2 xl:grid-cols-5 [&>*]:min-w-0">
         <MetricCard
@@ -755,13 +703,22 @@ export default function SatisfactionPage() {
         </ChartCard>
       </section>
 
-      <SatisfactionReportTable
-        title="Customer Satisfaction Report Data"
-        rows={rows}
-      />
+      <div data-html2canvas-ignore="true">
+
+        
+
+              <SatisfactionReportTable
+
+                title="Customer Satisfaction Report Data"
+
+                rows={rows}
+
+              />
+
+      </div>
 
       {loading ? (
-        <div className="fixed bottom-5 right-5 rounded-full border border-[#00dcc5]/30 bg-black px-4 py-2 text-xs font-black text-[#00dcc5]">
+        <div data-html2canvas-ignore="true" className="fixed bottom-5 right-5 rounded-full border border-[#00dcc5]/30 bg-black px-4 py-2 text-xs font-black text-[#00dcc5]">
           Loading satisfaction report...
         </div>
       ) : null}

@@ -13,22 +13,16 @@ import {
 } from "recharts";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+import html2canvas from "html2canvas";
 
 import ChartCard from "../../../components/ChartCard";
 import MetricCard from "../../../components/MetricCard";
 import ReportHeader from "../../../components/ReportHeader";
+import RushRmaFilters, { initialRushRmaFilters } from "./RushRmaFilters";
 import {
   fetchGlobalRmaReport,
   syncGlobalRma,
 } from "../../../services/rmaApi";
-
-const initialFilters = {
-  search: "",
-  region: "",
-  month: "",
-  product: "",
-};
 
 const tabs = [
   { key: "summary", label: "Summary" },
@@ -71,102 +65,14 @@ function DarkTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
 
   return (
-    <div className="rounded-xl border border-zinc-700 bg-black px-4 py-3 text-xs shadow-2xl">
+    <div
+      className="rounded-xl border border-zinc-700 bg-black px-4 py-3 text-xs shadow-2xl"
+    >
       <p className="font-black text-white">{label || payload[0]?.name}</p>
       <p className="mt-1 font-bold text-[#00dcc5]">
         Value: {payload[0]?.value ?? 0}
       </p>
     </div>
-  );
-}
-
-function SelectField({ label, value, onChange, options = [] }) {
-  return (
-    <label className="block">
-      <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">
-        {label}
-      </span>
-
-      <select value={value || ""} onChange={onChange} className="input">
-        <option value="">All</option>
-        {options.map((item) => (
-          <option key={item} value={item}>
-            {item}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}
-
-function RmaFilters({ filters, setFilters, options }) {
-  const update = (key, value) => {
-    setFilters((current) => ({
-      ...current,
-      [key]: value,
-    }));
-  };
-
-  return (
-    <section className="dashboard-card p-5">
-      <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#00dcc5]">
-            Filters
-          </p>
-          <h2 className="mt-1 text-xl font-black text-white">
-            Global RMA Filters
-          </h2>
-          <p className="mt-1 text-xs text-zinc-500">
-            Filter by region tab, month, product and search.
-          </p>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => setFilters(initialFilters)}
-          className="btn border border-zinc-800 bg-black text-zinc-300 hover:border-[#00dcc5]"
-        >
-          Reset Filters
-        </button>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <label className="block xl:col-span-2">
-          <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">
-            Search
-          </span>
-
-          <input
-            value={filters.search || ""}
-            onChange={(event) => update("search", event.target.value)}
-            className="input"
-            placeholder="Search product or description..."
-          />
-        </label>
-
-        <SelectField
-          label="Region"
-          value={filters.region}
-          onChange={(event) => update("region", event.target.value)}
-          options={options.regions || []}
-        />
-
-        <SelectField
-          label="Month"
-          value={filters.month}
-          onChange={(event) => update("month", event.target.value)}
-          options={options.months || []}
-        />
-
-        <SelectField
-          label="Product"
-          value={filters.product}
-          onChange={(event) => update("product", event.target.value)}
-          options={options.products || []}
-        />
-      </div>
-    </section>
   );
 }
 
@@ -222,7 +128,7 @@ function RmaTable({ rows }) {
 
 export default function GlobalRmaPage() {
   const [activeTab, setActiveTab] = useState("summary");
-  const [filters, setFilters] = useState(initialFilters);
+  const [filters, setFilters] = useState(initialRushRmaFilters);
   const [report, setReport] = useState(null);
   const [syncing, setSyncing] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -308,47 +214,346 @@ export default function GlobalRmaPage() {
     XLSX.writeFile(wb, "global-rma-report.xlsx");
   }
 
-  function exportPdf() {
-    const doc = new jsPDF("landscape");
+  async function exportPdf() {
+    const dashboardElement = document.getElementById(
+      "rush-rma-pdf-content",
+    );
 
-    doc.text("Global RMA Report", 14, 14);
-    doc.setFontSize(8);
-    doc.text(`Total Records: ${rows.length}`, 14, 20);
+    if (!dashboardElement) {
+      setError(
+        "Unable to locate the dashboard for PDF export.",
+      );
+      return;
+    }
 
-    autoTable(doc, {
-      startY: 26,
-      head: [columns.map((column) => column.label)],
-      body: rows.map((row) => columns.map((column) => row[column.key] ?? "-")),
-      styles: { fontSize: 5 },
-      headStyles: {
-        fillColor: [0, 220, 197],
-        textColor: [0, 0, 0],
-      },
-    });
+    setError("");
 
-    doc.save("global-rma-report.pdf");
+    const temporaryHeader =
+      document.createElement("section");
+
+    temporaryHeader.className =
+      "dashboard-card p-6";
+
+    temporaryHeader.setAttribute(
+      "data-pdf-temporary-header",
+      "true",
+    );
+
+    temporaryHeader.style.background =
+      "#000000";
+
+    temporaryHeader.innerHTML = `
+      <div style="
+        display:flex;
+        align-items:flex-start;
+        justify-content:space-between;
+        gap:24px;
+        background:#000000;
+        color:#ffffff;
+      ">
+        <div>
+          <p style="
+            margin:0;
+            color:#00dcc5;
+            font-size:11px;
+            font-weight:900;
+            letter-spacing:0.18em;
+            text-transform:uppercase;
+          ">
+            Atomos Google Sheet Analytics
+          </p>
+
+          <h1 style="
+            margin:8px 0 0;
+            color:#ffffff;
+            font-size:28px;
+            font-weight:900;
+          ">
+            Rush RMA Dashboard
+          </h1>
+
+          <p style="
+            margin:8px 0 0;
+            color:#a1a1aa;
+            font-size:13px;
+          ">
+            US RMA and EMEA RMA stock movement and case analytics
+          </p>
+        </div>
+
+        <div style="
+          text-align:right;
+          color:#a1a1aa;
+          font-size:11px;
+          line-height:1.8;
+        ">
+          <div>
+            Records:
+            <strong style="color:#ffffff;">
+              ${report?.total ?? rows.length}
+            </strong>
+          </div>
+
+          <div>
+            Synced:
+            <strong style="color:#ffffff;">
+              ${
+                report?.syncedAt
+                  ? new Date(
+                      report.syncedAt,
+                    ).toLocaleString()
+                  : "Not available"
+              }
+            </strong>
+          </div>
+
+          <div>
+            Exported:
+            <strong style="color:#ffffff;">
+              ${new Date().toLocaleString()}
+            </strong>
+          </div>
+        </div>
+      </div>
+    `;
+
+    dashboardElement.prepend(
+      temporaryHeader,
+    );
+
+    const previousScrollX =
+      window.scrollX;
+
+    const previousScrollY =
+      window.scrollY;
+
+    try {
+      window.scrollTo(0, 0);
+
+      await new Promise((resolve) =>
+        requestAnimationFrame(() =>
+          requestAnimationFrame(resolve),
+        ),
+      );
+
+      const overviewSections =
+        Array.from(
+          dashboardElement.children,
+        ).filter((element) => {
+          if (
+            element.hasAttribute(
+              "data-html2canvas-ignore",
+            )
+          ) {
+            return false;
+          }
+
+          if (
+            element.matches(
+              '[data-pdf-temporary-header="true"]',
+            )
+          ) {
+            return true;
+          }
+
+          const hasChart = Boolean(
+            element.querySelector(
+              ".recharts-responsive-container",
+            ),
+          );
+
+          const hasCard = Boolean(
+            element.matches(
+              ".dashboard-card",
+            ) ||
+              element.querySelector(
+                ".dashboard-card",
+              ),
+          );
+
+          return hasCard && !hasChart;
+        });
+
+      const chartCards = Array.from(
+        dashboardElement.querySelectorAll(
+          ".dashboard-card",
+        ),
+      ).filter((card) => {
+        if (
+          card.closest(
+            '[data-html2canvas-ignore="true"]',
+          )
+        ) {
+          return false;
+        }
+
+        return Boolean(
+          card.querySelector(
+            ".recharts-responsive-container",
+          ),
+        );
+      });
+
+      const exportSections = [
+        ...overviewSections,
+        ...chartCards,
+      ].filter(
+        (element, index, list) =>
+          list.indexOf(element) === index,
+      );
+
+      if (!exportSections.length) {
+        throw new Error(
+          "No dashboard sections were found for PDF export.",
+        );
+      }
+
+      const pdfDocument = new jsPDF({
+        orientation: "landscape",
+        unit: "mm",
+        format: "a4",
+        compress: true,
+      });
+
+      const pageWidth =
+        pdfDocument.internal.pageSize.getWidth();
+
+      const pageHeight =
+        pdfDocument.internal.pageSize.getHeight();
+
+      const margin = 8;
+      const availableWidth =
+        pageWidth - margin * 2;
+      const availableHeight =
+        pageHeight - margin * 2;
+
+      for (
+        let index = 0;
+        index < exportSections.length;
+        index += 1
+      ) {
+        const section =
+          exportSections[index];
+
+        const canvas = await html2canvas(
+          section,
+          {
+            backgroundColor: "#000000",
+            scale: 2,
+            useCORS: true,
+            logging: false,
+            scrollX: 0,
+            scrollY: 0,
+            windowWidth: Math.max(
+              document.documentElement.clientWidth,
+              section.scrollWidth,
+            ),
+            windowHeight: Math.max(
+              document.documentElement.clientHeight,
+              section.scrollHeight,
+            ),
+            ignoreElements: (element) =>
+              element.hasAttribute?.(
+                "data-html2canvas-ignore",
+              ),
+          },
+        );
+
+        if (index > 0) {
+          pdfDocument.addPage();
+        }
+
+        pdfDocument.setFillColor(
+          0,
+          0,
+          0,
+        );
+
+        pdfDocument.rect(
+          0,
+          0,
+          pageWidth,
+          pageHeight,
+          "F",
+        );
+
+        const scaleRatio = Math.min(
+          availableWidth / canvas.width,
+          availableHeight / canvas.height,
+        );
+
+        const imageWidth =
+          canvas.width * scaleRatio;
+
+        const imageHeight =
+          canvas.height * scaleRatio;
+
+        const imageX =
+          (pageWidth - imageWidth) / 2;
+
+        const imageY =
+          (pageHeight - imageHeight) / 2;
+
+        pdfDocument.addImage(
+          canvas.toDataURL(
+            "image/jpeg",
+            0.96,
+          ),
+          "JPEG",
+          imageX,
+          imageY,
+          imageWidth,
+          imageHeight,
+          undefined,
+          "FAST",
+        );
+      }
+
+      pdfDocument.save(
+        `rush-rma-dashboard-${new Date()
+          .toISOString()
+          .slice(0, 10)}.pdf`,
+      );
+    } catch (pdfError) {
+      setError(
+        pdfError?.message ||
+          "Unable to export dashboard PDF.",
+      );
+    } finally {
+      temporaryHeader.remove();
+
+      window.scrollTo(
+        previousScrollX,
+        previousScrollY,
+      );
+    }
   }
 
   return (
-    <div className="space-y-6">
-      <ReportHeader
-        title="Global RMA"
-        subtitle="US RMA and EMEA RMA analytics with product, month, stock movement, pending status and Google Drive RMA case tracking."
-        syncedAt={report?.syncedAt}
-        loading={syncing}
-        onSync={handleSync}
-        onUnsync={() => setReport(null)}
-        onExcel={exportExcel}
-        onPdf={exportPdf}
-      />
+    <div
+      id="rush-rma-pdf-content"
+      className="space-y-6"
+    >
+      <div data-html2canvas-ignore="true">
+        <ReportHeader
+          title="RUSH RMA"
+          // subtitle="US RMA and EMEA RMA analytics with product, month, stock movement, pending status and Google Drive RMA case tracking."
+          syncedAt={report?.syncedAt}
+          loading={syncing}
+          onSync={handleSync}
+          onUnsync={() => setReport(null)}
+          onExcel={exportExcel}
+          onPdf={exportPdf}
+        />
+      </div>
 
       {error ? (
-        <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm font-bold text-red-200">
+        <div data-html2canvas-ignore="true" className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm font-bold text-red-200">
           {error}
         </div>
       ) : null}
 
-      <section className="dashboard-card p-4">
+      <section data-html2canvas-ignore="true" className="dashboard-card p-4">
         <div className="flex flex-wrap gap-2">
           {tabs.map((tab) => (
             <button
@@ -368,7 +573,17 @@ export default function GlobalRmaPage() {
         </div>
       </section>
 
-      <RmaFilters filters={filters} setFilters={setFilters} options={options} />
+      <div data-html2canvas-ignore="true">
+
+        
+
+              <RushRmaFilters
+          filters={filters}
+          setFilters={setFilters}
+          options={options}
+        />
+
+      </div>
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard
@@ -518,10 +733,16 @@ export default function GlobalRmaPage() {
         </ChartCard>
       </section>
 
-      <RmaTable rows={rows} />
+      <div data-html2canvas-ignore="true">
+
+        
+
+              <RmaTable rows={rows} />
+
+      </div>
 
       {loading ? (
-        <div className="fixed bottom-5 right-5 rounded-full border border-[#00dcc5]/30 bg-black px-4 py-2 text-xs font-black text-[#00dcc5]">
+        <div data-html2canvas-ignore="true" className="fixed bottom-5 right-5 rounded-full border border-[#00dcc5]/30 bg-black px-4 py-2 text-xs font-black text-[#00dcc5]">
           Loading Global RMA...
         </div>
       ) : null}

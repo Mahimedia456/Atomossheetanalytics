@@ -131,10 +131,7 @@ export default function HomePage() {
               Welcome, {user?.name}
             </h1>
 
-            <p className="mt-6 max-w-2xl text-base leading-8 text-zinc-500">
-              Google Sheet reporting workspace for ticket analytics, satisfaction,
-              global RMA, agent performance, rush RMA and social reporting.
-            </p>
+           
 
             <div className="mt-8 flex flex-wrap gap-3">
               <button

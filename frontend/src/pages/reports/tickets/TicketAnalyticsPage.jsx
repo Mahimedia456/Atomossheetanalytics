@@ -14,13 +14,12 @@ import {
   YAxis,
 } from "recharts";
 import * as XLSX from "xlsx";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 
 import ChartCard from "../../../components/ChartCard";
 import DataTable from "../../../components/DataTable";
 import MetricCard from "../../../components/MetricCard";
 import ReportHeader from "../../../components/ReportHeader";
+import { exportDashboardPdf } from "../../../utils/dashboardPdfExport";
 import { fetchTicketReport, syncTickets } from "../../../services/ticketApi";
 import TicketFilters from "./TicketFilters";
 
@@ -72,7 +71,10 @@ function DarkTooltip({ active, payload, label }) {
   const value = payload[0]?.value ?? 0;
 
   return (
-    <div className="rounded-xl border border-zinc-700 bg-black px-4 py-3 text-xs shadow-2xl">
+    <div
+      id="ticket-analytics-pdf-content"
+      className="rounded-xl border border-zinc-700 bg-black px-4 py-3 text-xs shadow-2xl"
+    >
       <p className="font-black text-white">{name}</p>
       <p className="mt-1 font-bold text-[#00dcc5]">Tickets: {value}</p>
     </div>
@@ -167,25 +169,27 @@ export default function TicketAnalyticsPage() {
     XLSX.writeFile(wb, "ticket-analytics.xlsx");
   }
 
-  function exportPdf() {
-    const doc = new jsPDF("landscape");
+  async function exportPdf() {
+    setError("");
 
-    doc.text("Ticket Analytics Report", 14, 14);
-    doc.setFontSize(8);
-    doc.text(`Total Records: ${report?.total || rows.length}`, 14, 20);
-
-    autoTable(doc, {
-      startY: 26,
-      head: [columns.map((column) => column.label)],
-      body: rows.map((row) => columns.map((column) => row[column.key] || "-")),
-      styles: { fontSize: 6 },
-      headStyles: {
-        fillColor: [0, 220, 197],
-        textColor: [0, 0, 0],
-      },
-    });
-
-    doc.save("ticket-analytics.pdf");
+    try {
+      await exportDashboardPdf({
+        rootId: "ticket-analytics-pdf-content",
+        title: "Ticket Analytics Dashboard",
+        subtitle:
+          "Ticket trends, products, categories, regions and agent reporting",
+        filename: "ticket-analytics-dashboard",
+        recordCount:
+          report?.total ?? rows.length,
+        syncedAt:
+          report?.syncedAt,
+      });
+    } catch (pdfError) {
+      setError(
+        pdfError?.message ||
+          "Unable to export dashboard PDF.",
+      );
+    }
   }
 
   const productData = limitChartData(analytics.byProduct || []);
@@ -194,32 +198,47 @@ export default function TicketAnalyticsPage() {
   const tseData = limitChartData(analytics.byTse || []);
 
   return (
-    <div className="space-y-6">
-   <ReportHeader
-  title="Ticket Analytics"
-  subtitle="Zendesk-style ticket analytics with date-wise, product-wise, category-wise, region-wise and TSE agent reporting."
-  syncedAt={report?.syncedAt}
-  loading={syncing}
-  onSync={handleSync}
-  onUnsync={() => {
-    setReport(null);
-    setError("");
-  }}
-  onExcel={exportExcel}
-  onPdf={exportPdf}
-/>
+    <div
+      id="ticket-analytics-pdf-content"
+      className="space-y-6"
+    >
+   <div data-html2canvas-ignore="true">
+     <ReportHeader
+       title="Ticket Analytics"
+      //  subtitle="Zendesk-style ticket analytics with date-wise, product-wise, category-wise, region-wise and TSE agent reporting."
+       syncedAt={report?.syncedAt}
+       loading={syncing}
+       onSync={handleSync}
+       onUnsync={() => {
+      setReport(null);
+      setError("");
+       }}
+       onExcel={exportExcel}
+       onPdf={exportPdf}
+     />
+   </div>
 
       {error ? (
-        <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm font-bold text-red-200">
+        <div data-html2canvas-ignore="true" className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm font-bold text-red-200">
           {error}
         </div>
       ) : null}
 
-      <TicketFilters
-        filters={filters}
-        setFilters={setFilters}
-        options={options}
-      />
+      <div data-html2canvas-ignore="true">
+
+        
+
+              <TicketFilters
+
+                filters={filters}
+
+                setFilters={setFilters}
+
+                options={options}
+
+              />
+
+      </div>
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard
@@ -349,10 +368,16 @@ export default function TicketAnalyticsPage() {
         </ChartCard>
       </section>
 
-      <DataTable rows={rows} columns={columns} />
+      <div data-html2canvas-ignore="true">
+
+        
+
+              <DataTable rows={rows} columns={columns} />
+
+      </div>
 
       {loading ? (
-        <div className="fixed bottom-5 right-5 rounded-full border border-[#00dcc5]/30 bg-black px-4 py-2 text-xs font-black text-[#00dcc5]">
+        <div data-html2canvas-ignore="true" className="fixed bottom-5 right-5 rounded-full border border-[#00dcc5]/30 bg-black px-4 py-2 text-xs font-black text-[#00dcc5]">
           Loading report...
         </div>
       ) : null}

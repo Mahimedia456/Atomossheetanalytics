@@ -15,40 +15,13 @@ import {
 } from "recharts";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+import html2canvas from "html2canvas";
 
 import ChartCard from "../../../components/ChartCard";
 import MetricCard from "../../../components/MetricCard";
 import ReportHeader from "../../../components/ReportHeader";
+import SocialFilters, { initialSocialFilters } from "./SocialFilters";
 import { fetchSocialReport, syncSocial } from "../../../services/socialApi";
-
-const initialFilters = {
-  search: "",
-  year: "",
-  month: "",
-  fromDate: "",
-  toDate: "",
-  region: "",
-  country: "",
-  product: "",
-  category: "",
-  status: "",
-};
-
-const monthOptions = [
-  { value: "1", label: "January" },
-  { value: "2", label: "February" },
-  { value: "3", label: "March" },
-  { value: "4", label: "April" },
-  { value: "5", label: "May" },
-  { value: "6", label: "June" },
-  { value: "7", label: "July" },
-  { value: "8", label: "August" },
-  { value: "9", label: "September" },
-  { value: "10", label: "October" },
-  { value: "11", label: "November" },
-  { value: "12", label: "December" },
-];
 
 const columns = [
   { key: "customerName", label: "Customer Name" },
@@ -81,116 +54,14 @@ function DarkTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
 
   return (
-    <div className="rounded-xl border border-zinc-700 bg-black px-4 py-3 text-xs shadow-2xl">
+    <div
+      className="rounded-xl border border-zinc-700 bg-black px-4 py-3 text-xs shadow-2xl"
+    >
       <p className="font-black text-white">{label || payload[0]?.name}</p>
       <p className="mt-1 font-bold text-[#00dcc5]">
         Queries: {payload[0]?.value ?? 0}
       </p>
     </div>
-  );
-}
-
-function SelectField({ label, value, onChange, options = [] }) {
-  return (
-    <label className="block">
-      <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">
-        {label}
-      </span>
-
-      <select value={value || ""} onChange={onChange} className="input">
-        <option value="">All</option>
-        {options.map((item) => {
-          const value = typeof item === "object" ? String(item.value) : String(item);
-          const label = typeof item === "object" ? item.label : String(item);
-
-          return (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          );
-        })}
-      </select>
-    </label>
-  );
-}
-
-function DateField({ label, value, onChange }) {
-  return (
-    <label className="block">
-      <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">
-        {label}
-      </span>
-
-      <input
-        type="date"
-        value={value || ""}
-        onChange={onChange}
-        onFocus={(event) => event.target.showPicker?.()}
-        onClick={(event) => event.target.showPicker?.()}
-        className="input cursor-pointer appearance-none [color-scheme:dark]"
-      />
-    </label>
-  );
-}
-
-function SocialFilters({ filters, setFilters, options }) {
-  const update = (key, value) => {
-    setFilters((current) => ({
-      ...current,
-      [key]: value,
-    }));
-  };
-
-  return (
-    <section className="dashboard-card p-5">
-      <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#00dcc5]">
-            Filters
-          </p>
-
-          <h2 className="mt-1 text-xl font-black">Social Filters</h2>
-
-          <p className="mt-1 text-xs text-zinc-500">
-            Filter social records by date, region, country, product, category and status.
-          </p>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => setFilters(initialFilters)}
-          className="btn border border-zinc-800 bg-black text-zinc-300 hover:border-[#00dcc5]"
-        >
-          Reset Filters
-        </button>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <label className="block xl:col-span-2">
-          <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">
-            Search
-          </span>
-
-          <input
-            value={filters.search || ""}
-            onChange={(event) => update("search", event.target.value)}
-            className="input"
-            placeholder="Search customer, post/query, response, product..."
-          />
-        </label>
-
-        <SelectField label="Year" value={filters.year} onChange={(e) => update("year", e.target.value)} options={options.years || []} />
-        <SelectField label="Month" value={filters.month} onChange={(e) => update("month", e.target.value)} options={monthOptions} />
-        <DateField label="From Date" value={filters.fromDate} onChange={(e) => update("fromDate", e.target.value)} />
-        <DateField label="To Date" value={filters.toDate} onChange={(e) => update("toDate", e.target.value)} />
-
-        <SelectField label="Region" value={filters.region} onChange={(e) => update("region", e.target.value)} options={options.regions || []} />
-        <SelectField label="Country" value={filters.country} onChange={(e) => update("country", e.target.value)} options={options.countries || []} />
-        <SelectField label="Product" value={filters.product} onChange={(e) => update("product", e.target.value)} options={options.products || []} />
-        <SelectField label="Category" value={filters.category} onChange={(e) => update("category", e.target.value)} options={options.categories || []} />
-        <SelectField label="Status" value={filters.status} onChange={(e) => update("status", e.target.value)} options={options.statuses || []} />
-      </div>
-    </section>
   );
 }
 
@@ -252,7 +123,7 @@ function SocialTable({ rows }) {
 }
 
 export default function SocialPage() {
-  const [filters, setFilters] = useState(initialFilters);
+  const [filters, setFilters] = useState(initialSocialFilters);
   const [report, setReport] = useState(null);
   const [syncing, setSyncing] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -329,47 +200,356 @@ export default function SocialPage() {
     XLSX.writeFile(wb, "social-report.xlsx");
   }
 
-  function exportPdf() {
-    const doc = new jsPDF("landscape");
+  async function exportPdf() {
+    const dashboardElement = document.getElementById(
+      "social-analytics-pdf-content",
+    );
 
-    doc.text("Social Report", 14, 14);
-    doc.setFontSize(8);
-    doc.text(`Total Records: ${rows.length}`, 14, 20);
+    if (!dashboardElement) {
+      setError(
+        "Unable to locate the dashboard for PDF export.",
+      );
+      return;
+    }
 
-    autoTable(doc, {
-      startY: 26,
-      head: [columns.map((column) => column.label)],
-      body: rows.map((row) => columns.map((column) => row[column.key] ?? "-")),
-      styles: { fontSize: 5 },
-      headStyles: {
-        fillColor: [0, 220, 197],
-        textColor: [0, 0, 0],
-      },
-    });
+    setError("");
 
-    doc.save("social-report.pdf");
+    const temporaryHeader =
+      document.createElement("section");
+
+    temporaryHeader.className =
+      "dashboard-card p-6";
+
+    temporaryHeader.setAttribute(
+      "data-pdf-temporary-header",
+      "true",
+    );
+
+    temporaryHeader.style.background =
+      "#000000";
+
+    temporaryHeader.innerHTML = `
+      <div style="
+        display:flex;
+        align-items:flex-start;
+        justify-content:space-between;
+        gap:24px;
+        background:#000000;
+        color:#ffffff;
+      ">
+        <div>
+          <p style="
+            margin:0;
+            color:#00dcc5;
+            font-size:11px;
+            font-weight:900;
+            letter-spacing:0.18em;
+            text-transform:uppercase;
+          ">
+            Atomos Google Sheet Analytics
+          </p>
+
+          <h1 style="
+            margin:8px 0 0;
+            color:#ffffff;
+            font-size:28px;
+            font-weight:900;
+          ">
+            Social Analytics Dashboard
+          </h1>
+
+          <p style="
+            margin:8px 0 0;
+            color:#a1a1aa;
+            font-size:13px;
+          ">
+            Social queries, responses, products, categories, regions and resolution status
+          </p>
+        </div>
+
+        <div style="
+          text-align:right;
+          color:#a1a1aa;
+          font-size:11px;
+          line-height:1.8;
+        ">
+          <div>
+            Records:
+            <strong style="color:#ffffff;">
+              ${report?.total ?? rows.length}
+            </strong>
+          </div>
+
+          <div>
+            Synced:
+            <strong style="color:#ffffff;">
+              ${
+                report?.syncedAt
+                  ? new Date(
+                      report.syncedAt,
+                    ).toLocaleString()
+                  : "Not available"
+              }
+            </strong>
+          </div>
+
+          <div>
+            Exported:
+            <strong style="color:#ffffff;">
+              ${new Date().toLocaleString()}
+            </strong>
+          </div>
+        </div>
+      </div>
+    `;
+
+    dashboardElement.prepend(
+      temporaryHeader,
+    );
+
+    const previousScrollX =
+      window.scrollX;
+
+    const previousScrollY =
+      window.scrollY;
+
+    try {
+      window.scrollTo(0, 0);
+
+      await new Promise((resolve) =>
+        requestAnimationFrame(() =>
+          requestAnimationFrame(resolve),
+        ),
+      );
+
+      const overviewSections =
+        Array.from(
+          dashboardElement.children,
+        ).filter((element) => {
+          if (
+            element.hasAttribute(
+              "data-html2canvas-ignore",
+            )
+          ) {
+            return false;
+          }
+
+          if (
+            element.matches(
+              '[data-pdf-temporary-header="true"]',
+            )
+          ) {
+            return true;
+          }
+
+          const hasChart = Boolean(
+            element.querySelector(
+              ".recharts-responsive-container",
+            ),
+          );
+
+          const hasCard = Boolean(
+            element.matches(
+              ".dashboard-card",
+            ) ||
+              element.querySelector(
+                ".dashboard-card",
+              ),
+          );
+
+          return hasCard && !hasChart;
+        });
+
+      const chartCards = Array.from(
+        dashboardElement.querySelectorAll(
+          ".dashboard-card",
+        ),
+      ).filter((card) => {
+        if (
+          card.closest(
+            '[data-html2canvas-ignore="true"]',
+          )
+        ) {
+          return false;
+        }
+
+        return Boolean(
+          card.querySelector(
+            ".recharts-responsive-container",
+          ),
+        );
+      });
+
+      const exportSections = [
+        ...overviewSections,
+        ...chartCards,
+      ].filter(
+        (element, index, list) =>
+          list.indexOf(element) === index,
+      );
+
+      if (!exportSections.length) {
+        throw new Error(
+          "No dashboard sections were found for PDF export.",
+        );
+      }
+
+      const pdfDocument = new jsPDF({
+        orientation: "landscape",
+        unit: "mm",
+        format: "a4",
+        compress: true,
+      });
+
+      const pageWidth =
+        pdfDocument.internal.pageSize.getWidth();
+
+      const pageHeight =
+        pdfDocument.internal.pageSize.getHeight();
+
+      const margin = 8;
+      const availableWidth =
+        pageWidth - margin * 2;
+      const availableHeight =
+        pageHeight - margin * 2;
+
+      for (
+        let index = 0;
+        index < exportSections.length;
+        index += 1
+      ) {
+        const section =
+          exportSections[index];
+
+        const canvas = await html2canvas(
+          section,
+          {
+            backgroundColor: "#000000",
+            scale: 2,
+            useCORS: true,
+            logging: false,
+            scrollX: 0,
+            scrollY: 0,
+            windowWidth: Math.max(
+              document.documentElement.clientWidth,
+              section.scrollWidth,
+            ),
+            windowHeight: Math.max(
+              document.documentElement.clientHeight,
+              section.scrollHeight,
+            ),
+            ignoreElements: (element) =>
+              element.hasAttribute?.(
+                "data-html2canvas-ignore",
+              ),
+          },
+        );
+
+        if (index > 0) {
+          pdfDocument.addPage();
+        }
+
+        pdfDocument.setFillColor(
+          0,
+          0,
+          0,
+        );
+
+        pdfDocument.rect(
+          0,
+          0,
+          pageWidth,
+          pageHeight,
+          "F",
+        );
+
+        const scaleRatio = Math.min(
+          availableWidth / canvas.width,
+          availableHeight / canvas.height,
+        );
+
+        const imageWidth =
+          canvas.width * scaleRatio;
+
+        const imageHeight =
+          canvas.height * scaleRatio;
+
+        const imageX =
+          (pageWidth - imageWidth) / 2;
+
+        const imageY =
+          (pageHeight - imageHeight) / 2;
+
+        pdfDocument.addImage(
+          canvas.toDataURL(
+            "image/jpeg",
+            0.96,
+          ),
+          "JPEG",
+          imageX,
+          imageY,
+          imageWidth,
+          imageHeight,
+          undefined,
+          "FAST",
+        );
+      }
+
+      pdfDocument.save(
+        `social-analytics-dashboard-${new Date()
+          .toISOString()
+          .slice(0, 10)}.pdf`,
+      );
+    } catch (pdfError) {
+      setError(
+        pdfError?.message ||
+          "Unable to export dashboard PDF.",
+      );
+    } finally {
+      temporaryHeader.remove();
+
+      window.scrollTo(
+        previousScrollX,
+        previousScrollY,
+      );
+    }
   }
 
   return (
-    <div className="space-y-6">
-      <ReportHeader
-        title="Social Analytics"
-        subtitle="Social post and query reporting with response tracking, product, category, region, country and resolved status analytics."
-        syncedAt={report?.syncedAt}
-        loading={syncing}
-        onSync={handleSync}
-        onUnsync={() => setReport(null)}
-        onExcel={exportExcel}
-        onPdf={exportPdf}
-      />
+    <div
+      id="social-analytics-pdf-content"
+      className="space-y-6"
+    >
+      <div data-html2canvas-ignore="true">
+        <ReportHeader
+          title="Social Analytics"
+          // subtitle="Social post and query reporting with response tracking, product, category, region, country and resolved status analytics."
+          syncedAt={report?.syncedAt}
+          loading={syncing}
+          onSync={handleSync}
+          onUnsync={() => setReport(null)}
+          onExcel={exportExcel}
+          onPdf={exportPdf}
+        />
+      </div>
 
       {error ? (
-        <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm font-bold text-red-200">
+        <div data-html2canvas-ignore="true" className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm font-bold text-red-200">
           {error}
         </div>
       ) : null}
 
-      <SocialFilters filters={filters} setFilters={setFilters} options={options} />
+      <div data-html2canvas-ignore="true">
+
+        
+
+              <SocialFilters
+          filters={filters}
+          setFilters={setFilters}
+          options={options}
+        />
+
+      </div>
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Total Queries" value={analytics.totalQueries} hint="Social records" />
@@ -470,10 +650,16 @@ export default function SocialPage() {
         </ChartCard>
       </section>
 
-      <SocialTable rows={rows} />
+      <div data-html2canvas-ignore="true">
+
+        
+
+              <SocialTable rows={rows} />
+
+      </div>
 
       {loading ? (
-        <div className="fixed bottom-5 right-5 rounded-full border border-[#00dcc5]/30 bg-black px-4 py-2 text-xs font-black text-[#00dcc5]">
+        <div data-html2canvas-ignore="true" className="fixed bottom-5 right-5 rounded-full border border-[#00dcc5]/30 bg-black px-4 py-2 text-xs font-black text-[#00dcc5]">
           Loading Social report...
         </div>
       ) : null}
