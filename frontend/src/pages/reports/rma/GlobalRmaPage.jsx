@@ -1120,7 +1120,7 @@ export default function GlobalRmaPage() {
         </div>
       ) : null}
 
-      <section className="dashboard-card overflow-hidden">
+      {/* <section className="dashboard-card overflow-hidden">
         <div className="atomos-grid-bg atomos-glow p-6">
           <div className="flex flex-wrap items-start justify-between gap-5">
             <div>
@@ -1183,7 +1183,7 @@ export default function GlobalRmaPage() {
             </div>
           </div>
         </div>
-      </section>
+      </section> */}
 
       <div data-html2canvas-ignore="true">
         <GlobalRmaFilters

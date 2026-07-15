@@ -1,20 +1,28 @@
-import { useEffect, useRef, useState } from "react";
+import {
+  useEffect,
+  useState,
+} from "react";
+
 import {
   BarChart3,
   Headphones,
+  MessageCircle,
   RefreshCw,
   ShieldCheck,
   SmilePlus,
   TrendingUp,
   Zap,
-  MessageCircle,
 } from "lucide-react";
 
 import { useAuth } from "../../context/AuthContext";
-import { syncTickets } from "../../services/ticketApi";
-import { syncSatisfaction } from "../../services/satisfactionApi";
-import { syncGlobalRma } from "../../services/rmaApi";
-import { syncSocial } from "../../services/socialApi";
+
+import {
+  AUTO_SYNC_COMPLETED_EVENT,
+  AUTO_SYNC_STARTED_EVENT,
+  clearAutoSyncResult,
+  getLastAutoSyncResult,
+  syncAllDashboardModules,
+} from "../../services/autoSyncApi";
 
 const modules = [
   {
@@ -24,97 +32,166 @@ const modules = [
   },
   {
     title: "Satisfaction",
-    desc: "Customer satisfaction reporting and feedback analytics.",
+    desc: "Customer satisfaction reporting, ratings and customer feedback analytics.",
     icon: SmilePlus,
   },
   {
     title: "Global RMA",
-    desc: "Global RMA reporting and stock movement analytics.",
+    desc: "Global USA and EMEA RMA reporting, products, faults and stock movement analytics.",
     icon: TrendingUp,
   },
   {
     title: "Agent Performance",
-    desc: "TSE and agent-wise performance analytics.",
+    desc: "TSE and agent-wise ticket handling, activity and performance analytics.",
     icon: Headphones,
   },
   {
     title: "Rush RMA",
-    desc: "Rush RMA reporting for USA and EMEA.",
+    desc: "Rush RMA reporting and operational analytics for USA and EMEA.",
     icon: Zap,
   },
   {
     title: "Social",
-    desc: "Social post, query, response and resolve status analytics.",
+    desc: "Social posts, customer queries, responses and resolve status analytics.",
     icon: MessageCircle,
   },
 ];
 
+function formatSyncMessage(
+  result,
+  prefix = "Auto sync completed.",
+) {
+  if (!result?.modules) {
+    return "";
+  }
+
+  const completed = Object.values(
+    result.modules,
+  )
+    .filter(
+      (module) => module.ok,
+    )
+    .map((module) => {
+      if (module.count === null) {
+        return module.label;
+      }
+
+      return `${module.label}: ${Number(
+        module.count,
+      ).toLocaleString()}`;
+    });
+
+  const failed = Object.values(
+    result.modules,
+  )
+    .filter(
+      (module) => !module.ok,
+    )
+    .map(
+      (module) =>
+        module.label,
+    );
+
+  return [
+    prefix,
+    completed.join(", "),
+    failed.length
+      ? `Failed: ${failed.join(", ")}`
+      : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
 export default function HomePage() {
   const { user } = useAuth();
-  const didAutoSync = useRef(false);
 
-  const [syncing, setSyncing] = useState(false);
-  const [message, setMessage] = useState("");
+  const [syncing, setSyncing] =
+    useState(false);
 
-  async function runAllSync(isAuto = false) {
+  const [message, setMessage] =
+    useState(() =>
+      formatSyncMessage(
+        getLastAutoSyncResult(),
+      ),
+    );
+
+  async function runAllSync() {
     setSyncing(true);
-
-    if (!isAuto) setMessage("");
+    setMessage("");
 
     try {
-      const [tickets, satisfaction, rma, social] = await Promise.allSettled([
-        syncTickets(),
-        syncSatisfaction(),
-        syncGlobalRma(),
-        syncSocial(),
-      ]);
-
-      const totals = {
-        tickets: tickets.status === "fulfilled" ? tickets.value?.total || 0 : 0,
-        satisfaction:
-          satisfaction.status === "fulfilled" ? satisfaction.value?.total || 0 : 0,
-        rma: rma.status === "fulfilled" ? rma.value?.total || 0 : 0,
-        social: social.status === "fulfilled" ? social.value?.total || 0 : 0,
-      };
-
-      const failed = [
-        tickets.status === "rejected" ? "Tickets" : "",
-        satisfaction.status === "rejected" ? "Satisfaction" : "",
-        rma.status === "rejected" ? "RMA" : "",
-        social.status === "rejected" ? "Social" : "",
-      ].filter(Boolean);
+      const response =
+        await syncAllDashboardModules({
+          force: true,
+        });
 
       setMessage(
-        `${isAuto ? "Auto sync completed." : "Sync completed."} Tickets: ${totals.tickets}, Satisfaction: ${totals.satisfaction}, RMA: ${totals.rma}, Social: ${totals.social}${
-          failed.length ? `. Failed: ${failed.join(", ")}` : ""
-        }`
-      );
-
-      localStorage.setItem(
-        "atomos_last_sync",
-        JSON.stringify({
-          ...totals,
-          syncedAt: new Date().toISOString(),
-        })
+        formatSyncMessage(
+          response?.result,
+          "Sync completed.",
+        ),
       );
     } catch (error) {
-      setMessage(error?.response?.data?.message || "Sync failed.");
+      setMessage(
+        error?.response?.data?.message ||
+          error?.message ||
+          "Sync failed.",
+      );
     } finally {
       setSyncing(false);
     }
   }
 
   function handleUnsync() {
-    localStorage.removeItem("atomos_last_sync");
-    localStorage.removeItem("atomos_ticket_last_sync");
-    setMessage("Data unsynced from current browser session.");
+    clearAutoSyncResult();
+
+    setMessage(
+      "Saved sync status was removed from this browser. Backend data remains unchanged.",
+    );
   }
 
+  /*
+   * Keep Home status synchronized with AppLayout's central sync.
+   */
   useEffect(() => {
-    if (didAutoSync.current) return;
+    function handleSyncStarted() {
+      setSyncing(true);
+    }
 
-    didAutoSync.current = true;
-    runAllSync(true);
+    function handleSyncCompleted(
+      event,
+    ) {
+      setSyncing(false);
+
+      setMessage(
+        formatSyncMessage(
+          event.detail,
+        ),
+      );
+    }
+
+    window.addEventListener(
+      AUTO_SYNC_STARTED_EVENT,
+      handleSyncStarted,
+    );
+
+    window.addEventListener(
+      AUTO_SYNC_COMPLETED_EVENT,
+      handleSyncCompleted,
+    );
+
+    return () => {
+      window.removeEventListener(
+        AUTO_SYNC_STARTED_EVENT,
+        handleSyncStarted,
+      );
+
+      window.removeEventListener(
+        AUTO_SYNC_COMPLETED_EVENT,
+        handleSyncCompleted,
+      );
+    };
   }, []);
 
   return (
@@ -128,32 +205,56 @@ export default function HomePage() {
             </div>
 
             <h1 className="text-4xl font-black tracking-tight text-white md:text-5xl">
-              Welcome, {user?.name}
+              Welcome,{" "}
+              {user?.name ||
+                user?.full_name ||
+                "Admin"}
             </h1>
-
-           
+{/* 
+            <p className="mt-5 max-w-2xl text-sm leading-7 text-zinc-500">
+              Review live Google Sheet reporting across
+              Tickets, Satisfaction, Global RMA, Rush RMA,
+              Agent Performance and Social analytics.
+              Dashboard data automatically refreshes whenever
+              you move between reporting pages.
+            </p> */}
 
             <div className="mt-8 flex flex-wrap gap-3">
               <button
                 type="button"
-                onClick={() => runAllSync(false)}
+                onClick={runAllSync}
                 disabled={syncing}
                 className="btn btn-primary inline-flex items-center justify-center gap-2"
               >
-                <RefreshCw size={16} className={syncing ? "animate-spin" : ""} />
-                {syncing ? "Syncing..." : "Sync All Data"}
+                <RefreshCw
+                  size={16}
+                  className={
+                    syncing
+                      ? "animate-spin"
+                      : ""
+                  }
+                />
+
+                {syncing
+                  ? "Syncing..."
+                  : "Sync All Data"}
               </button>
 
               <button
                 type="button"
                 onClick={handleUnsync}
-                className="inline-flex items-center justify-center rounded-full bg-white px-6 py-2 text-sm font-black text-black transition hover:bg-zinc-200"
+                disabled={syncing}
+                className="inline-flex items-center justify-center rounded-full bg-white px-6 py-2 text-sm font-black text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Unsync
               </button>
             </div>
 
-            {message ? <p className="mt-5 text-sm font-bold text-[#00dcc5]">{message}</p> : null}
+            {message ? (
+              <p className="mt-5 max-w-3xl text-sm font-bold leading-6 text-[#00dcc5]">
+                {message}
+              </p>
+            ) : null}
           </div>
 
           <div className="relative overflow-hidden rounded-[28px] border border-zinc-800 bg-black p-8">
@@ -173,7 +274,10 @@ export default function HomePage() {
               </div>
 
               <div className="border-t border-zinc-900 pt-5 text-center">
-                <p className="text-base font-black text-white">Mahimedia Solutions</p>
+                <p className="text-base font-black text-white">
+                  Mahimedia Solutions
+                </p>
+
                 <p className="mt-2 text-[10px] font-black uppercase tracking-[0.2em] text-[#00dcc5]">
                   Analytics & Reporting Solutions
                 </p>
@@ -188,13 +292,21 @@ export default function HomePage() {
           const Icon = item.icon;
 
           return (
-            <div key={item.title} className="dashboard-card bg-black p-6">
+            <div
+              key={item.title}
+              className="dashboard-card bg-black p-6"
+            >
               <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#00dcc5]/10 text-[#00dcc5]">
                 <Icon className="h-7 w-7" />
               </div>
 
-              <h3 className="text-xl font-black text-white">{item.title}</h3>
-              <p className="mt-3 text-sm leading-7 text-zinc-500">{item.desc}</p>
+              <h3 className="text-xl font-black text-white">
+                {item.title}
+              </h3>
+
+              <p className="mt-3 text-sm leading-7 text-zinc-500">
+                {item.desc}
+              </p>
             </div>
           );
         })}

@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 
 import {
+  useMemo,
   useState,
 } from "react";
 
@@ -27,6 +28,7 @@ const defaultPages = [
   {
     title: "Home",
     path: "/",
+    adminOnly: true,
   },
   {
     title: "Tickets",
@@ -47,12 +49,32 @@ const defaultPages = [
   {
     title: "Agent Performance",
     path: "/reports/agents",
+    adminOnly: true,
   },
   {
     title: "Social",
     path: "/reports/social",
   },
 ];
+
+function normalizeRole(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase();
+}
+
+function isAdminRole(user) {
+  const role = normalizeRole(
+    user?.role,
+  );
+
+  return [
+    "admin",
+    "owner",
+    "super_admin",
+    "super-admin",
+  ].includes(role);
+}
 
 function NavigationItem({
   page,
@@ -140,6 +162,17 @@ function AutoSyncStatus({
                 Syncing all dashboard modules...
               </span>
             </>
+          ) : error ? (
+            <>
+              <TriangleAlert
+                size={14}
+                className="shrink-0 text-red-400"
+              />
+
+              <span className="truncate text-red-200">
+                {error}
+              </span>
+            </>
           ) : failedModules.length ? (
             <>
               <TriangleAlert
@@ -168,17 +201,6 @@ function AutoSyncStatus({
                 {summary
                   ? ` ${summary}`
                   : ""}
-              </span>
-            </>
-          ) : error ? (
-            <>
-              <TriangleAlert
-                size={14}
-                className="shrink-0 text-red-400"
-              />
-
-              <span className="truncate text-red-200">
-                {error}
               </span>
             </>
           ) : (
@@ -220,8 +242,12 @@ export default function AppLayout({
   const location = useLocation();
 
   const {
+    user,
     logout: authLogout,
   } = useAuth();
+
+  const adminUser =
+    isAdminRole(user);
 
   const {
     syncing,
@@ -234,14 +260,30 @@ export default function AppLayout({
       location.pathname,
   });
 
-  /*
-   * Admin and Viewer both see every module in the header.
-   */
-  const visiblePages =
+  const sourcePages =
     Array.isArray(pages) &&
     pages.length
       ? pages
       : defaultPages;
+
+  const visiblePages =
+    useMemo(
+      () =>
+        sourcePages.filter(
+          (page) =>
+            !page.adminOnly ||
+            adminUser,
+        ),
+      [
+        sourcePages,
+        adminUser,
+      ],
+    );
+
+  const dashboardHomePath =
+    adminUser
+      ? "/"
+      : "/reports/tickets";
 
   function logout() {
     setOpen(false);
@@ -260,7 +302,7 @@ export default function AppLayout({
       <header className="sticky top-0 z-50 border-b border-[#00dcc5]/20 bg-black/90 backdrop-blur-xl">
         <div className="mx-auto flex max-w-[1800px] items-center justify-between gap-4 px-4 py-4 sm:px-5">
           <NavLink
-            to="/"
+            to={dashboardHomePath}
             className="flex min-w-0 items-center gap-4"
           >
             <AtomosLogo className="h-8 w-[150px] shrink-0 text-white 2xl:w-[169px]" />

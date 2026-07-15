@@ -126,6 +126,7 @@ function getModuleCount(
 
     agents: [
       "analytics.totalTickets",
+      "analytics.totalAgents",
       "agents",
       ...commonPaths,
     ],
@@ -158,7 +159,29 @@ function saveSyncResult(result) {
       JSON.stringify(result),
     );
   } catch {
-    // Storage can be unavailable in private/restricted mode.
+    // Browser storage unavailable.
+  }
+}
+
+export function clearAutoSyncResult() {
+  try {
+    localStorage.removeItem(
+      AUTO_SYNC_STORAGE_KEY,
+    );
+
+    localStorage.removeItem(
+      AUTO_SYNC_RESULT_KEY,
+    );
+
+    localStorage.removeItem(
+      "atomos_last_sync",
+    );
+
+    localStorage.removeItem(
+      "atomos_ticket_last_sync",
+    );
+  } catch {
+    // Browser storage unavailable.
   }
 }
 
@@ -216,6 +239,14 @@ export async function syncAllDashboardModules({
   force = false,
   ttlMs = DEFAULT_AUTO_SYNC_TTL,
 } = {}) {
+  /*
+   * When another route requests sync while one is already running,
+   * return the same promise rather than starting duplicate requests.
+   */
+  if (activeSyncPromise) {
+    return activeSyncPromise;
+  }
+
   if (
     !shouldRunAutoSync({
       force,
@@ -228,10 +259,6 @@ export async function syncAllDashboardModules({
       result:
         getLastAutoSyncResult(),
     };
-  }
-
-  if (activeSyncPromise) {
-    return activeSyncPromise;
   }
 
   window.dispatchEvent(
@@ -327,10 +354,9 @@ export async function syncAllDashboardModules({
 
     const result = {
       ok: failed === 0,
-      partial: (
+      partial:
         successful > 0 &&
-        failed > 0
-      ),
+        failed > 0,
       successful,
       failed,
       modules,
@@ -339,11 +365,6 @@ export async function syncAllDashboardModules({
       syncedAtMs: Date.now(),
     };
 
-    /*
-     * Save the timestamp even after a partial success so broken
-     * endpoints are not hammered on every route navigation.
-     * Manual force sync remains available.
-     */
     saveSyncResult(result);
 
     window.dispatchEvent(

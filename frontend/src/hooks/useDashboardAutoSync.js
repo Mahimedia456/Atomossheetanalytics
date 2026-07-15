@@ -19,8 +19,11 @@ export default function useDashboardAutoSync({
   const mountedRef =
     useRef(true);
 
-  const firstRunRef =
-    useRef(true);
+  const initialRouteRef =
+    useRef(routeKey);
+
+  const initialSyncFinishedRef =
+    useRef(false);
 
   const [syncing, setSyncing] =
     useState(false);
@@ -92,23 +95,27 @@ export default function useDashboardAutoSync({
   );
 
   /*
-   * Initial protected-layout sync:
-   * wait for completion before rendering report pages so their
-   * first GET request reads the refreshed backend cache.
+   * Initial protected-layout sync.
+   *
+   * Force is enabled because the user may have edited the Google
+   * Sheet since the previous browser session.
    */
   useEffect(() => {
     mountedRef.current = true;
 
     async function initialize() {
       try {
-        await runSync();
+        await runSync({
+          force: true,
+        });
       } catch {
-        // The dashboard still opens when one sync endpoint fails.
+        // Dashboard opens even if one endpoint fails.
       } finally {
         if (mountedRef.current) {
+          initialSyncFinishedRef.current =
+            true;
+
           setInitializing(false);
-          firstRunRef.current =
-            false;
         }
       }
     }
@@ -121,29 +128,49 @@ export default function useDashboardAutoSync({
   }, [runSync]);
 
   /*
-   * AppLayout remains mounted during navigation. On route changes,
-   * smart sync runs only when the saved timestamp is older than
-   * the TTL. It does not sync on every click.
+   * Force sync whenever pathname changes.
+   *
+   * Example:
+   * Tickets -> Satisfaction -> Global RMA
+   *
+   * Each navigation refreshes backend sheet data before the new
+   * report page loads its latest records.
    */
   useEffect(() => {
     if (
-      firstRunRef.current ||
-      !routeKey
+      !routeKey ||
+      !initialSyncFinishedRef.current
     ) {
       return;
     }
 
+    /*
+     * Do not immediately repeat the initial sync for the route
+     * on which AppLayout was first mounted.
+     */
+    if (
+      initialRouteRef.current ===
+      routeKey
+    ) {
+      initialRouteRef.current = "";
+
+      return;
+    }
+
     runSync({
+      force: true,
       silent: true,
     }).catch(() => {});
   }, [routeKey, runSync]);
 
   /*
-   * Refresh stale data when the user returns to the browser tab.
+   * Browser focus uses TTL-based smart sync rather than forcing
+   * a complete refresh every time the window is clicked.
    */
   useEffect(() => {
     function handleFocus() {
       runSync({
+        force: false,
         silent: true,
       }).catch(() => {});
     }
@@ -166,6 +193,7 @@ export default function useDashboardAutoSync({
     initializing,
     result,
     error,
+
     forceSync: () =>
       runSync({
         force: true,
