@@ -17,54 +17,18 @@ export const initialSocialFilters = {
 };
 
 const monthOptions = [
-  {
-    value: "1",
-    label: "January",
-  },
-  {
-    value: "2",
-    label: "February",
-  },
-  {
-    value: "3",
-    label: "March",
-  },
-  {
-    value: "4",
-    label: "April",
-  },
-  {
-    value: "5",
-    label: "May",
-  },
-  {
-    value: "6",
-    label: "June",
-  },
-  {
-    value: "7",
-    label: "July",
-  },
-  {
-    value: "8",
-    label: "August",
-  },
-  {
-    value: "9",
-    label: "September",
-  },
-  {
-    value: "10",
-    label: "October",
-  },
-  {
-    value: "11",
-    label: "November",
-  },
-  {
-    value: "12",
-    label: "December",
-  },
+  { value: "1", label: "January" },
+  { value: "2", label: "February" },
+  { value: "3", label: "March" },
+  { value: "4", label: "April" },
+  { value: "5", label: "May" },
+  { value: "6", label: "June" },
+  { value: "7", label: "July" },
+  { value: "8", label: "August" },
+  { value: "9", label: "September" },
+  { value: "10", label: "October" },
+  { value: "11", label: "November" },
+  { value: "12", label: "December" },
 ];
 
 const inputClassName =
@@ -139,7 +103,7 @@ function DateField({
         onClick={openPicker}
         min={min}
         max={max}
-        className="input min-h-[46px] w-full cursor-pointer [color-scheme:dark]"
+        className={`${inputClassName} cursor-pointer`}
       />
     </label>
   );
@@ -157,8 +121,36 @@ export default function SocialFilters({
     }));
   }
 
+  function updateFromDate(value) {
+    setFilters((current) => ({
+      ...current,
+      fromDate: value,
+      toDate:
+        current.toDate &&
+        value &&
+        current.toDate < value
+          ? ""
+          : current.toDate,
+    }));
+  }
+
+  function updateToDate(value) {
+    setFilters((current) => ({
+      ...current,
+      toDate: value,
+      fromDate:
+        current.fromDate &&
+        value &&
+        current.fromDate > value
+          ? ""
+          : current.fromDate,
+    }));
+  }
+
   function resetFilters() {
-    setFilters(initialSocialFilters);
+    setFilters({
+      ...initialSocialFilters,
+    });
   }
 
   return (
@@ -242,11 +234,10 @@ export default function SocialFilters({
         />
 
         <DateField
-          label="From Date"
+          label="Date From"
           value={filters.fromDate}
           onChange={(event) =>
-            update(
-              "fromDate",
+            updateFromDate(
               event.target.value,
             )
           }
@@ -257,11 +248,10 @@ export default function SocialFilters({
         />
 
         <DateField
-          label="To Date"
+          label="Date To"
           value={filters.toDate}
           onChange={(event) =>
-            update(
-              "toDate",
+            updateToDate(
               event.target.value,
             )
           }

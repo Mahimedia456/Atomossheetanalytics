@@ -146,6 +146,18 @@ export default function SocialPage() {
     try {
       const data = await fetchSocialReport({
         ...filters,
+
+        // Send both naming conventions so the date range works regardless
+        // of whether the backend expects fromDate/toDate or dateFrom/dateTo.
+        fromDate:
+          filters.fromDate || "",
+        toDate:
+          filters.toDate || "",
+        dateFrom:
+          filters.fromDate || "",
+        dateTo:
+          filters.toDate || "",
+
         limit: 5000,
       });
 

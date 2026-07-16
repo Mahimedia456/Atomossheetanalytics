@@ -45,7 +45,7 @@ const columns = [
   { key: "aStock", label: "A - Stock" },
   { key: "pendingToShip", label: "Pending to Ship" },
   { key: "pendingToReceive", label: "Pending to Receive" },
-  { key: "googleDriveRmaCases", label: "Google Drive RMA Cases" },
+  { key: "googleDriveRmaCases", label: "Total Queries" },
 ];
 
 const chartColors = [
@@ -160,6 +160,18 @@ export default function RushRmaPage() {
     try {
       const data = await fetchGlobalRmaReport({
         ...effectiveFilters,
+
+        // Send both naming conventions so the request works with either
+        // backend controller/service implementation.
+        fromDate:
+          effectiveFilters.fromDate || "",
+        toDate:
+          effectiveFilters.toDate || "",
+        dateFrom:
+          effectiveFilters.fromDate || "",
+        dateTo:
+          effectiveFilters.toDate || "",
+
         limit: 5000,
       });
 
@@ -357,7 +369,7 @@ async function exportPdf() {
         />
 
         <MetricCard
-          label="Google Drive Cases"
+          label="Total Queries"
           value={analytics.googleDriveRmaCases}
           hint="RMA case count"
         />
@@ -414,7 +426,7 @@ async function exportPdf() {
           </ResponsiveContainer>
         </ChartCard>
 
-        <ChartCard title="Stock Summary">
+        <ChartCard title="D-Stock Received">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
@@ -474,27 +486,30 @@ async function exportPdf() {
           </ResponsiveContainer>
         </ChartCard>
 
-        <ChartCard title="Region-wise RMA">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={analytics.byRegion || []}
-                dataKey="value"
-                nameKey="name"
-                outerRadius={105}
-                label
-              >
-                {(analytics.byRegion || []).map((_, index) => (
-                  <Cell
-                    key={index}
-                    fill={chartColors[index % chartColors.length]}
-                  />
-                ))}
-              </Pie>
-              <Tooltip content={<DarkTooltip />} />
-            </PieChart>
-          </ResponsiveContainer>
-        </ChartCard>
+        {activeTab === "summary" ? (
+          <ChartCard title="Region-wise RMA">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={analytics.byRegion || []}
+                  dataKey="value"
+                  nameKey="name"
+                  outerRadius={105}
+                  label
+                >
+                  {(analytics.byRegion || []).map((_, index) => (
+                    <Cell
+                      key={index}
+                      fill={chartColors[index % chartColors.length]}
+                    />
+                  ))}
+                </Pie>
+
+                <Tooltip content={<DarkTooltip />} />
+              </PieChart>
+            </ResponsiveContainer>
+          </ChartCard>
+        ) : null}
       </section>
 
       <div data-pdf-section="true" data-pdf-table="true">
