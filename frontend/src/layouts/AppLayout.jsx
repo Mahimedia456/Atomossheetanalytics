@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 
 import {
+  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -21,6 +22,7 @@ import {
 } from "react-router-dom";
 
 import AtomosLogo from "../components/AtomosLogo";
+import ThemeToggle from "../components/ThemeToggle";
 import { useAuth } from "../context/AuthContext";
 import useDashboardAutoSync from "../hooks/useDashboardAutoSync";
 
@@ -232,11 +234,20 @@ function AutoSyncStatus({
   );
 }
 
+const THEME_STORAGE_KEY = "atomos_dashboard_theme";
+
+function getInitialTheme() {
+  const saved = window.localStorage.getItem(THEME_STORAGE_KEY);
+  return saved === "light" ? "light" : "dark";
+}
+
 export default function AppLayout({
   pages = defaultPages,
 }) {
   const [open, setOpen] =
     useState(false);
+
+  const [theme, setTheme] = useState(getInitialTheme);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -285,6 +296,17 @@ export default function AppLayout({
       ? "/"
       : "/reports/tickets";
 
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.classList.toggle("dark", theme === "dark");
+    window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+  }, [theme]);
+
+  function toggleTheme() {
+    setTheme((current) => (current === "dark" ? "light" : "dark"));
+  }
+
   function logout() {
     setOpen(false);
     authLogout();
@@ -295,11 +317,11 @@ export default function AppLayout({
   }
 
   return (
-    <div className="relative min-h-screen overflow-x-hidden bg-black text-white">
+    <div className="relative min-h-screen overflow-x-hidden bg-[var(--at-bg)] text-[var(--at-text)]">
       <div className="pointer-events-none fixed inset-0 atomos-grid-bg opacity-20" />
       <div className="pointer-events-none fixed inset-0 atomos-glow opacity-80" />
 
-      <header className="sticky top-0 z-50 border-b border-[#00dcc5]/20 bg-black/90 backdrop-blur-xl">
+      <header className="sticky top-0 z-50 border-b border-[#00dcc5]/20 bg-[var(--at-header)] backdrop-blur-xl">
         <div className="mx-auto flex max-w-[1800px] items-center justify-between gap-4 px-4 py-4 sm:px-5">
           <NavLink
             to={dashboardHomePath}
@@ -308,12 +330,12 @@ export default function AppLayout({
             <AtomosLogo className="h-8 w-[150px] shrink-0 text-white 2xl:w-[169px]" />
 
             <div className="hidden border-l border-zinc-800 pl-4 2xl:block">
-              <h1 className="text-sm font-black uppercase tracking-[0.18em] text-white">
+              <h1 className="text-sm font-black uppercase tracking-[0.18em] text-[var(--at-text)]">
                 Analytics Workspace
               </h1>
 
-              <p className="mt-1 text-xs font-medium text-zinc-500">
-                Google Sheet reporting and RMA analytics
+              <p className="mt-1 text-xs font-medium text-[var(--at-muted)]">
+                Reporting and Analytics
               </p>
             </div>
           </NavLink>
@@ -349,6 +371,8 @@ export default function AppLayout({
                 />
               ),
             )}
+
+            {/* <ThemeToggle theme={theme} onToggle={toggleTheme} /> */}
 
             <button
               type="button"

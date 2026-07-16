@@ -210,14 +210,7 @@ export default function HomePage() {
                 user?.full_name ||
                 "Admin"}
             </h1>
-{/* 
-            <p className="mt-5 max-w-2xl text-sm leading-7 text-zinc-500">
-              Review live Google Sheet reporting across
-              Tickets, Satisfaction, Global RMA, Rush RMA,
-              Agent Performance and Social analytics.
-              Dashboard data automatically refreshes whenever
-              you move between reporting pages.
-            </p> */}
+
 
             <div className="mt-8 flex flex-wrap gap-3">
               <button

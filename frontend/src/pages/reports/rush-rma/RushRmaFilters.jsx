@@ -28,20 +28,36 @@ function SelectField({
       </span>
 
       <select
-        value={value || ""}
-        onChange={onChange}
-        className={inputClassName}
+        value={
+          value || ""
+        }
+        onChange={
+          onChange
+        }
+        className={
+          inputClassName
+        }
       >
-        <option value="">All</option>
+        <option value="">
+          All
+        </option>
 
-        {options.map((item) => (
-          <option
-            key={String(item)}
-            value={item}
-          >
-            {item}
-          </option>
-        ))}
+        {options.map(
+          (item) => (
+            <option
+              key={
+                String(
+                  item,
+                )
+              }
+              value={
+                item
+              }
+            >
+              {item}
+            </option>
+          ),
+        )}
       </select>
     </label>
   );
@@ -54,8 +70,11 @@ function DateField({
   min,
   max,
 }) {
-  function openPicker(event) {
-    event.currentTarget.showPicker?.();
+  function openPicker(
+    event,
+  ) {
+    event.currentTarget
+      .showPicker?.();
   }
 
   return (
@@ -66,10 +85,18 @@ function DateField({
 
       <input
         type="date"
-        value={value || ""}
-        onChange={onChange}
-        onFocus={openPicker}
-        onClick={openPicker}
+        value={
+          value || ""
+        }
+        onChange={
+          onChange
+        }
+        onFocus={
+          openPicker
+        }
+        onClick={
+          openPicker
+        }
         min={min}
         max={max}
         className="input min-h-[46px] w-full cursor-pointer [color-scheme:dark]"
@@ -83,15 +110,24 @@ export default function RushRmaFilters({
   setFilters,
   options = {},
 }) {
-  function update(key, value) {
-    setFilters((current) => ({
-      ...current,
-      [key]: value,
-    }));
+  function update(
+    key,
+    value,
+  ) {
+    setFilters(
+      (
+        current,
+      ) => ({
+        ...current,
+        [key]: value,
+      }),
+    );
   }
 
   function resetFilters() {
-    setFilters(initialRushRmaFilters);
+    setFilters(
+      initialRushRmaFilters,
+    );
   }
 
   return (
@@ -107,16 +143,24 @@ export default function RushRmaFilters({
           </h2>
 
           <p className="mt-1 text-xs text-zinc-500">
-            Filter by date range, region, month, product and search.
+            Filter by date
+            range, region,
+            month, device
+            name and search.
           </p>
         </div>
 
         <button
           type="button"
-          onClick={resetFilters}
+          onClick={
+            resetFilters
+          }
           className="btn inline-flex items-center gap-2 border border-zinc-800 bg-black text-zinc-300 hover:border-[#00dcc5]"
         >
-          <RotateCcw size={14} />
+          <RotateCcw
+            size={14}
+          />
+
           Reset Filters
         </button>
       </div>
@@ -135,11 +179,17 @@ export default function RushRmaFilters({
 
             <input
               type="search"
-              value={filters.search || ""}
-              onChange={(event) =>
+              value={
+                filters.search ||
+                ""
+              }
+              onChange={(
+                event,
+              ) =>
                 update(
                   "search",
-                  event.target.value,
+                  event.target
+                    .value,
                 )
               }
               className={`${inputClassName} pl-11`}
@@ -150,11 +200,16 @@ export default function RushRmaFilters({
 
         <DateField
           label="Date From"
-          value={filters.dateFrom}
-          onChange={(event) =>
+          value={
+            filters.dateFrom
+          }
+          onChange={(
+            event,
+          ) =>
             update(
               "dateFrom",
-              event.target.value,
+              event.target
+                .value,
             )
           }
           max={
@@ -165,11 +220,16 @@ export default function RushRmaFilters({
 
         <DateField
           label="Date To"
-          value={filters.dateTo}
-          onChange={(event) =>
+          value={
+            filters.dateTo
+          }
+          onChange={(
+            event,
+          ) =>
             update(
               "dateTo",
-              event.target.value,
+              event.target
+                .value,
             )
           }
           min={
@@ -180,43 +240,61 @@ export default function RushRmaFilters({
 
         <SelectField
           label="Region"
-          value={filters.region}
-          onChange={(event) =>
+          value={
+            filters.region
+          }
+          onChange={(
+            event,
+          ) =>
             update(
               "region",
-              event.target.value,
+              event.target
+                .value,
             )
           }
           options={
-            options.regions || []
+            options.regions ||
+            []
           }
         />
 
         <SelectField
           label="Month"
-          value={filters.month}
-          onChange={(event) =>
+          value={
+            filters.month
+          }
+          onChange={(
+            event,
+          ) =>
             update(
               "month",
-              event.target.value,
+              event.target
+                .value,
             )
           }
           options={
-            options.months || []
+            options.months ||
+            []
           }
         />
 
         <SelectField
-          label="Product"
-          value={filters.product}
-          onChange={(event) =>
+          label="Device Name"
+          value={
+            filters.product
+          }
+          onChange={(
+            event,
+          ) =>
             update(
               "product",
-              event.target.value,
+              event.target
+                .value,
             )
           }
           options={
-            options.products || []
+            options.descriptions ||
+            []
           }
         />
       </div>

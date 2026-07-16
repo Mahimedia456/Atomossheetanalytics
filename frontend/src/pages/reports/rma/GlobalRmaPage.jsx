@@ -39,7 +39,7 @@ import ChartCard from "../../../components/ChartCard";
 import DataTable from "../../../components/DataTable";
 import MetricCard from "../../../components/MetricCard";
 import ReportHeader from "../../../components/ReportHeader";
-import { exportDashboardPdf } from "../../../utils/dashboardPdfExport";
+import { exportDashboardPdf, waitForPdfUiPaint } from "../../../utils/dashboardPdfExport";
 
 import {
   fetchGlobalRmaReport,
@@ -670,6 +670,10 @@ export default function GlobalRmaPage() {
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState("");
 
+  const [pdfExporting, setPdfExporting] = useState(false);
+  const [pdfProgress, setPdfProgress] = useState(0);
+  const [pdfMessage, setPdfMessage] = useState("");
+
   const [chartLimits, setChartLimits] = useState({
     warranty: "10",
     rmaStatus: "10",
@@ -985,6 +989,11 @@ export default function GlobalRmaPage() {
   }
 
   function exportExcel() {
+    if (!rows.length) {
+      window.alert("No Global RMA rows to export.");
+      return;
+    }
+
     const exportRows = rows.map((row) => {
       return tableColumns.reduce(
         (exportRow, column) => {
@@ -1066,38 +1075,79 @@ export default function GlobalRmaPage() {
     );
   }
 
-  async function exportPdf() {
-    setError("");
-
-    try {
-      await exportDashboardPdf({
-        rootId: "global-rma-pdf-content",
-        title: "Global RMA Dashboard",
-        subtitle:
-          "Unified USA and EMEA RMA analytics",
-        filename: "global-rma-dashboard",
-        recordCount:
-          report?.total ?? rows.length,
-        syncedAt:
-          report?.syncedAt,
-      });
-    } catch (pdfError) {
-      setError(
-        pdfError?.message ||
-          "Unable to export dashboard PDF.",
-      );
-    }
+ async function exportPdf() {
+  if (pdfExporting) {
+    return;
   }
 
+  setError("");
+  setPdfExporting(true);
+  setPdfProgress(1);
+  setPdfMessage(
+    "Preparing Global RMA metrics, fault analytics and report table...",
+  );
+
+  await waitForPdfUiPaint();
+
+  try {
+    await exportDashboardPdf({
+      rootId:
+        "global-rma-pdf-content",
+
+      title:
+        "Global RMA",
+
+      filename:
+        "global-rma-dashboard",
+
+      onProgress: ({
+        progress,
+        message,
+      }) => {
+        setPdfProgress(
+          progress,
+        );
+
+        setPdfMessage(
+          message,
+        );
+      },
+    });
+
+    setPdfProgress(100);
+    setPdfMessage(
+      "Global RMA PDF is ready. Download started.",
+    );
+
+    await new Promise(
+      (resolve) => {
+        window.setTimeout(
+          resolve,
+          1400,
+        );
+      },
+    );
+  } catch (pdfError) {
+    setError(
+      pdfError?.message ||
+        "Unable to export Global RMA PDF.",
+    );
+  } finally {
+    setPdfExporting(false);
+    setPdfProgress(0);
+    setPdfMessage("");
+  }
+}
   const sourceCounts =
     report?.sourceCounts || {};
 
   return (
-    <div
+    <>
+      <div
       id="global-rma-pdf-content"
       className="space-y-6"
     >
-      <div data-html2canvas-ignore="true">
+      <div data-pdf-skip="true">
         <ReportHeader
           eyebrow="Google Sheet Analytics"
         title="Global RMA"
@@ -1106,9 +1156,9 @@ export default function GlobalRmaPage() {
         syncing={syncing}
         syncedAt={report?.syncedAt}
         onRefresh={loadReport}
-        onSync={handleSync}
         onExcel={exportExcel}
           onPdf={exportPdf}
+          exportingPdf={pdfExporting}
         />
       </div>
 
@@ -1120,70 +1170,7 @@ export default function GlobalRmaPage() {
         </div>
       ) : null}
 
-      {/* <section className="dashboard-card overflow-hidden">
-        <div className="atomos-grid-bg atomos-glow p-6">
-          <div className="flex flex-wrap items-start justify-between gap-5">
-            <div>
-              <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[#00dcc5]/30 bg-[#00dcc5]/10 text-[#00dcc5]">
-                  <Globe2 size={24} />
-                </div>
-
-                <div>
-                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[#00dcc5]">
-                    Unified RMA dataset
-                  </p>
-
-                  <h1 className="mt-1 text-2xl font-black text-white">
-                    USA + EMEA
-                  </h1>
-                </div>
-              </div>
-
-              <p className="mt-4 max-w-3xl text-sm leading-6 text-zinc-400">
-                Both source tabs are merged by the backend.
-                There are no separate dashboard tabs. Use the
-                Region filter to review USA, EMEA or combined
-                Global RMA performance.
-              </p>
-            </div>
-
-            <div className="grid min-w-[280px] grid-cols-3 gap-3">
-              <div className="rounded-2xl border border-zinc-800 bg-black/80 p-4 text-center">
-                <p className="text-[10px] font-black uppercase tracking-wider text-zinc-500">
-                  USA rows
-                </p>
-
-                <p className="mt-2 text-xl font-black text-white">
-                  {sourceCounts.USA ?? analytics.totalUsa ?? 0}
-                </p>
-              </div>
-
-              <div className="rounded-2xl border border-zinc-800 bg-black/80 p-4 text-center">
-                <p className="text-[10px] font-black uppercase tracking-wider text-zinc-500">
-                  EMEA rows
-                </p>
-
-                <p className="mt-2 text-xl font-black text-white">
-                  {sourceCounts.EMEA ?? analytics.totalEmea ?? 0}
-                </p>
-              </div>
-
-              <div className="rounded-2xl border border-[#00dcc5]/30 bg-[#00dcc5]/10 p-4 text-center">
-                <p className="text-[10px] font-black uppercase tracking-wider text-[#00dcc5]">
-                  Merged
-                </p>
-
-                <p className="mt-2 text-xl font-black text-white">
-                  {sourceCounts.total ??
-                    report?.totalSourceRows ??
-                    0}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section> */}
+     
 
       <div data-html2canvas-ignore="true">
         <GlobalRmaFilters
@@ -1194,7 +1181,7 @@ export default function GlobalRmaPage() {
         />
       </div>
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <section data-pdf-section="true" data-pdf-keep-together="true" data-pdf-grid="5" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <MetricCard
           title="Total Global RMA"
           value={analytics.totalRma || 0}
@@ -1273,7 +1260,7 @@ export default function GlobalRmaPage() {
         />
       </section>
 
-      <section className="grid min-w-0 items-start gap-6 2xl:grid-cols-2">
+      <section data-pdf-section="true" data-pdf-keep-together="true" data-pdf-grid="2" className="grid min-w-0 items-start gap-6 2xl:grid-cols-2">
         <ChartCard
           title="INW / OOW by Region"
           subtitle="Warranty status distribution across Global RMA"
@@ -1506,7 +1493,7 @@ export default function GlobalRmaPage() {
         </div>
       </section>
 
-      <section className="grid min-w-0 items-start gap-6 2xl:grid-cols-2">
+      <section data-pdf-section="true" data-pdf-keep-together="true" data-pdf-grid="2" className="grid min-w-0 items-start gap-6 2xl:grid-cols-2">
         <ChartCard
           title="RMA Product Trend — High / Low"
           subtitle={
@@ -1720,7 +1707,7 @@ export default function GlobalRmaPage() {
         </ChartCard>
       </section>
 
-      <section className="grid min-w-0 items-start gap-6 2xl:grid-cols-2">
+      <section data-pdf-section="true" data-pdf-keep-together="true" data-pdf-grid="2" className="grid min-w-0 items-start gap-6 2xl:grid-cols-2">
         <TrendTableCard
           title={
             productDisplayMode === "sku"
@@ -1976,7 +1963,8 @@ export default function GlobalRmaPage() {
       </ChartCard>
 
       <section
-        data-html2canvas-ignore="true"
+        data-pdf-section="true"
+        data-pdf-table="true"
         className="dashboard-card overflow-hidden"
       >
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-zinc-900 px-5 py-4">
@@ -2032,6 +2020,16 @@ export default function GlobalRmaPage() {
           />
         )}
       </section>
+
+      {loading ? (
+        <div
+          data-html2canvas-ignore="true"
+          className="fixed bottom-5 right-5 z-50 rounded-full border border-[#00dcc5]/30 bg-black px-4 py-2 text-xs font-black text-[#00dcc5] shadow-2xl"
+        >
+          Loading Global RMA report...
+        </div>
+      ) : null}
     </div>
+</>
   );
 }

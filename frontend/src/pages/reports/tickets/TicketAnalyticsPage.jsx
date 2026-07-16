@@ -19,7 +19,7 @@ import ChartCard from "../../../components/ChartCard";
 import DataTable from "../../../components/DataTable";
 import MetricCard from "../../../components/MetricCard";
 import ReportHeader from "../../../components/ReportHeader";
-import { exportDashboardPdf } from "../../../utils/dashboardPdfExport";
+import { exportDashboardPdf, waitForPdfUiPaint } from "../../../utils/dashboardPdfExport";
 import { fetchTicketReport, syncTickets } from "../../../services/ticketApi";
 import TicketFilters from "./TicketFilters";
 
@@ -72,7 +72,6 @@ function DarkTooltip({ active, payload, label }) {
 
   return (
     <div
-      id="ticket-analytics-pdf-content"
       className="rounded-xl border border-zinc-700 bg-black px-4 py-3 text-xs shadow-2xl"
     >
       <p className="font-black text-white">{name}</p>
@@ -109,6 +108,10 @@ export default function TicketAnalyticsPage() {
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState("");
+
+  const [pdfExporting, setPdfExporting] = useState(false);
+  const [pdfProgress, setPdfProgress] = useState(0);
+  const [pdfMessage, setPdfMessage] = useState("");
   const [chartLimit, setChartLimit] = useState("10");
 
   const analytics = report?.analytics || {};
@@ -154,6 +157,11 @@ export default function TicketAnalyticsPage() {
   }, [filterKey]);
 
   function exportExcel() {
+    if (!rows.length) {
+      window.alert("No ticket rows to export.");
+      return;
+    }
+
     const exportRows = rows.map((row) => {
       const cleanRow = {};
       columns.forEach((column) => {
@@ -170,27 +178,68 @@ export default function TicketAnalyticsPage() {
   }
 
   async function exportPdf() {
-    setError("");
-
-    try {
-      await exportDashboardPdf({
-        rootId: "ticket-analytics-pdf-content",
-        title: "Ticket Analytics Dashboard",
-        subtitle:
-          "Ticket trends, products, categories, regions and agent reporting",
-        filename: "ticket-analytics-dashboard",
-        recordCount:
-          report?.total ?? rows.length,
-        syncedAt:
-          report?.syncedAt,
-      });
-    } catch (pdfError) {
-      setError(
-        pdfError?.message ||
-          "Unable to export dashboard PDF.",
-      );
-    }
+  if (pdfExporting) {
+    return;
   }
+
+  setError("");
+  setPdfExporting(true);
+  setPdfProgress(1);
+  setPdfMessage(
+    "Preparing Ticket Analytics metrics, charts and report table...",
+  );
+
+  await waitForPdfUiPaint();
+
+  try {
+    await exportDashboardPdf({
+      rootId:
+        "ticket-analytics-pdf-content",
+
+      title:
+        "Ticket Analytics",
+
+      filename:
+        "ticket-analytics-dashboard",
+
+      onProgress: ({
+        progress,
+        message,
+      }) => {
+        setPdfProgress(
+          progress,
+        );
+
+        setPdfMessage(
+          message,
+        );
+      },
+    });
+
+    setPdfProgress(100);
+    setPdfMessage(
+      "Ticket Analytics PDF is ready. Download started.",
+    );
+
+    await new Promise(
+      (resolve) => {
+        window.setTimeout(
+          resolve,
+          1400,
+        );
+      },
+    );
+  } catch (pdfError) {
+    setError(
+      pdfError?.message ||
+        "Unable to export Ticket Analytics PDF.",
+    );
+  } finally {
+    setPdfExporting(false);
+    setPdfProgress(0);
+    setPdfMessage("");
+  }
+}
 
   const productData = limitChartData(analytics.byProduct || []);
   const categoryData = limitChartData(analytics.byCategory || []);
@@ -198,23 +247,22 @@ export default function TicketAnalyticsPage() {
   const tseData = limitChartData(analytics.byTse || []);
 
   return (
-    <div
+    <>
+      <div
       id="ticket-analytics-pdf-content"
       className="space-y-6"
     >
-   <div data-html2canvas-ignore="true">
+   <div data-pdf-skip="true">
      <ReportHeader
        title="Ticket Analytics"
-      //  subtitle="Zendesk-style ticket analytics with date-wise, product-wise, category-wise, region-wise and TSE agent reporting."
        syncedAt={report?.syncedAt}
-       loading={syncing}
-       onSync={handleSync}
        onUnsync={() => {
       setReport(null);
       setError("");
        }}
        onExcel={exportExcel}
        onPdf={exportPdf}
+          exportingPdf={pdfExporting}
      />
    </div>
 
@@ -240,7 +288,7 @@ export default function TicketAnalyticsPage() {
 
       </div>
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <section data-pdf-section="true" data-pdf-keep-together="true" data-pdf-grid="4" className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard
           label="Total Tickets"
           value={analytics.totalTickets}
@@ -263,7 +311,7 @@ export default function TicketAnalyticsPage() {
         />
       </section>
 
-      <section>
+      <section data-pdf-section="true" data-pdf-keep-together="true">
         <ChartCard title="Date-wise Tickets" showLimit={false}>
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={analytics.byDate || []}>
@@ -283,7 +331,7 @@ export default function TicketAnalyticsPage() {
         </ChartCard>
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-2">
+      <section data-pdf-section="true" data-pdf-keep-together="true" data-pdf-grid="2" className="grid gap-6 xl:grid-cols-2">
         <ChartCard
           title="Product-wise Tickets"
           limit={chartLimit}
@@ -368,12 +416,8 @@ export default function TicketAnalyticsPage() {
         </ChartCard>
       </section>
 
-      <div data-html2canvas-ignore="true">
-
-        
-
-              <DataTable rows={rows} columns={columns} />
-
+      <div data-pdf-section="true" data-pdf-table="true">
+        <DataTable rows={rows} columns={columns} />
       </div>
 
       {loading ? (
@@ -382,5 +426,6 @@ export default function TicketAnalyticsPage() {
         </div>
       ) : null}
     </div>
+</>
   );
 }

@@ -12,12 +12,11 @@ import {
   YAxis,
 } from "recharts";
 import * as XLSX from "xlsx";
-import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
 
 import ChartCard from "../../../components/ChartCard";
 import MetricCard from "../../../components/MetricCard";
 import ReportHeader from "../../../components/ReportHeader";
+import { exportDashboardPdf, waitForPdfUiPaint } from "../../../utils/dashboardPdfExport";
 import RushRmaFilters, { initialRushRmaFilters } from "./RushRmaFilters";
 import {
   fetchGlobalRmaReport,
@@ -126,13 +125,17 @@ function RmaTable({ rows }) {
   );
 }
 
-export default function GlobalRmaPage() {
+export default function RushRmaPage() {
   const [activeTab, setActiveTab] = useState("summary");
   const [filters, setFilters] = useState(initialRushRmaFilters);
   const [report, setReport] = useState(null);
   const [syncing, setSyncing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const [pdfExporting, setPdfExporting] = useState(false);
+  const [pdfProgress, setPdfProgress] = useState(0);
+  const [pdfMessage, setPdfMessage] = useState("");
 
   const filterKey = useMemo(() => JSON.stringify(filters), [filters]);
 
@@ -214,336 +217,83 @@ export default function GlobalRmaPage() {
     XLSX.writeFile(wb, "global-rma-report.xlsx");
   }
 
-  async function exportPdf() {
-    const dashboardElement = document.getElementById(
-      "rush-rma-pdf-content",
-    );
-
-    if (!dashboardElement) {
-      setError(
-        "Unable to locate the dashboard for PDF export.",
-      );
-      return;
-    }
-
-    setError("");
-
-    const temporaryHeader =
-      document.createElement("section");
-
-    temporaryHeader.className =
-      "dashboard-card p-6";
-
-    temporaryHeader.setAttribute(
-      "data-pdf-temporary-header",
-      "true",
-    );
-
-    temporaryHeader.style.background =
-      "#000000";
-
-    temporaryHeader.innerHTML = `
-      <div style="
-        display:flex;
-        align-items:flex-start;
-        justify-content:space-between;
-        gap:24px;
-        background:#000000;
-        color:#ffffff;
-      ">
-        <div>
-          <p style="
-            margin:0;
-            color:#00dcc5;
-            font-size:11px;
-            font-weight:900;
-            letter-spacing:0.18em;
-            text-transform:uppercase;
-          ">
-            Atomos Google Sheet Analytics
-          </p>
-
-          <h1 style="
-            margin:8px 0 0;
-            color:#ffffff;
-            font-size:28px;
-            font-weight:900;
-          ">
-            Rush RMA Dashboard
-          </h1>
-
-          <p style="
-            margin:8px 0 0;
-            color:#a1a1aa;
-            font-size:13px;
-          ">
-            US RMA and EMEA RMA stock movement and case analytics
-          </p>
-        </div>
-
-        <div style="
-          text-align:right;
-          color:#a1a1aa;
-          font-size:11px;
-          line-height:1.8;
-        ">
-          <div>
-            Records:
-            <strong style="color:#ffffff;">
-              ${report?.total ?? rows.length}
-            </strong>
-          </div>
-
-          <div>
-            Synced:
-            <strong style="color:#ffffff;">
-              ${
-                report?.syncedAt
-                  ? new Date(
-                      report.syncedAt,
-                    ).toLocaleString()
-                  : "Not available"
-              }
-            </strong>
-          </div>
-
-          <div>
-            Exported:
-            <strong style="color:#ffffff;">
-              ${new Date().toLocaleString()}
-            </strong>
-          </div>
-        </div>
-      </div>
-    `;
-
-    dashboardElement.prepend(
-      temporaryHeader,
-    );
-
-    const previousScrollX =
-      window.scrollX;
-
-    const previousScrollY =
-      window.scrollY;
-
-    try {
-      window.scrollTo(0, 0);
-
-      await new Promise((resolve) =>
-        requestAnimationFrame(() =>
-          requestAnimationFrame(resolve),
-        ),
-      );
-
-      const overviewSections =
-        Array.from(
-          dashboardElement.children,
-        ).filter((element) => {
-          if (
-            element.hasAttribute(
-              "data-html2canvas-ignore",
-            )
-          ) {
-            return false;
-          }
-
-          if (
-            element.matches(
-              '[data-pdf-temporary-header="true"]',
-            )
-          ) {
-            return true;
-          }
-
-          const hasChart = Boolean(
-            element.querySelector(
-              ".recharts-responsive-container",
-            ),
-          );
-
-          const hasCard = Boolean(
-            element.matches(
-              ".dashboard-card",
-            ) ||
-              element.querySelector(
-                ".dashboard-card",
-              ),
-          );
-
-          return hasCard && !hasChart;
-        });
-
-      const chartCards = Array.from(
-        dashboardElement.querySelectorAll(
-          ".dashboard-card",
-        ),
-      ).filter((card) => {
-        if (
-          card.closest(
-            '[data-html2canvas-ignore="true"]',
-          )
-        ) {
-          return false;
-        }
-
-        return Boolean(
-          card.querySelector(
-            ".recharts-responsive-container",
-          ),
-        );
-      });
-
-      const exportSections = [
-        ...overviewSections,
-        ...chartCards,
-      ].filter(
-        (element, index, list) =>
-          list.indexOf(element) === index,
-      );
-
-      if (!exportSections.length) {
-        throw new Error(
-          "No dashboard sections were found for PDF export.",
-        );
-      }
-
-      const pdfDocument = new jsPDF({
-        orientation: "landscape",
-        unit: "mm",
-        format: "a4",
-        compress: true,
-      });
-
-      const pageWidth =
-        pdfDocument.internal.pageSize.getWidth();
-
-      const pageHeight =
-        pdfDocument.internal.pageSize.getHeight();
-
-      const margin = 8;
-      const availableWidth =
-        pageWidth - margin * 2;
-      const availableHeight =
-        pageHeight - margin * 2;
-
-      for (
-        let index = 0;
-        index < exportSections.length;
-        index += 1
-      ) {
-        const section =
-          exportSections[index];
-
-        const canvas = await html2canvas(
-          section,
-          {
-            backgroundColor: "#000000",
-            scale: 2,
-            useCORS: true,
-            logging: false,
-            scrollX: 0,
-            scrollY: 0,
-            windowWidth: Math.max(
-              document.documentElement.clientWidth,
-              section.scrollWidth,
-            ),
-            windowHeight: Math.max(
-              document.documentElement.clientHeight,
-              section.scrollHeight,
-            ),
-            ignoreElements: (element) =>
-              element.hasAttribute?.(
-                "data-html2canvas-ignore",
-              ),
-          },
-        );
-
-        if (index > 0) {
-          pdfDocument.addPage();
-        }
-
-        pdfDocument.setFillColor(
-          0,
-          0,
-          0,
-        );
-
-        pdfDocument.rect(
-          0,
-          0,
-          pageWidth,
-          pageHeight,
-          "F",
-        );
-
-        const scaleRatio = Math.min(
-          availableWidth / canvas.width,
-          availableHeight / canvas.height,
-        );
-
-        const imageWidth =
-          canvas.width * scaleRatio;
-
-        const imageHeight =
-          canvas.height * scaleRatio;
-
-        const imageX =
-          (pageWidth - imageWidth) / 2;
-
-        const imageY =
-          (pageHeight - imageHeight) / 2;
-
-        pdfDocument.addImage(
-          canvas.toDataURL(
-            "image/jpeg",
-            0.96,
-          ),
-          "JPEG",
-          imageX,
-          imageY,
-          imageWidth,
-          imageHeight,
-          undefined,
-          "FAST",
-        );
-      }
-
-      pdfDocument.save(
-        `rush-rma-dashboard-${new Date()
-          .toISOString()
-          .slice(0, 10)}.pdf`,
-      );
-    } catch (pdfError) {
-      setError(
-        pdfError?.message ||
-          "Unable to export dashboard PDF.",
-      );
-    } finally {
-      temporaryHeader.remove();
-
-      window.scrollTo(
-        previousScrollX,
-        previousScrollY,
-      );
-    }
+async function exportPdf() {
+  if (pdfExporting) {
+    return;
   }
 
+  setError("");
+  setPdfExporting(true);
+  setPdfProgress(1);
+  setPdfMessage(
+    "Preparing Rush RMA inventory, movement charts and report table...",
+  );
+
+  await waitForPdfUiPaint();
+
+  try {
+    await exportDashboardPdf({
+      rootId:
+        "rush-rma-pdf-content",
+
+      title:
+        "RUSH RMA",
+
+      filename:
+        "rush-rma-dashboard",
+
+      onProgress: ({
+        progress,
+        message,
+      }) => {
+        setPdfProgress(
+          progress,
+        );
+
+        setPdfMessage(
+          message,
+        );
+      },
+    });
+
+    setPdfProgress(100);
+    setPdfMessage(
+      "Rush RMA PDF is ready. Download started.",
+    );
+
+    await new Promise(
+      (resolve) => {
+        window.setTimeout(
+          resolve,
+          1400,
+        );
+      },
+    );
+  } catch (pdfError) {
+    setError(
+      pdfError?.message ||
+        "Unable to export Rush RMA PDF.",
+    );
+  } finally {
+    setPdfExporting(false);
+    setPdfProgress(0);
+    setPdfMessage("");
+  }
+}
+
   return (
-    <div
+    <>
+      <div
       id="rush-rma-pdf-content"
       className="space-y-6"
     >
-      <div data-html2canvas-ignore="true">
+      <div data-pdf-skip="true">
         <ReportHeader
           title="RUSH RMA"
-          // subtitle="US RMA and EMEA RMA analytics with product, month, stock movement, pending status and Google Drive RMA case tracking."
           syncedAt={report?.syncedAt}
-          loading={syncing}
-          onSync={handleSync}
-          onUnsync={() => setReport(null)}
           onExcel={exportExcel}
           onPdf={exportPdf}
+          exportingPdf={pdfExporting}
         />
       </div>
 
@@ -553,7 +303,7 @@ export default function GlobalRmaPage() {
         </div>
       ) : null}
 
-      <section data-html2canvas-ignore="true" className="dashboard-card p-4">
+      <section data-pdf-section="true" data-pdf-keep-together="true" className="dashboard-card p-4">
         <div className="flex flex-wrap gap-2">
           {tabs.map((tab) => (
             <button
@@ -585,7 +335,7 @@ export default function GlobalRmaPage() {
 
       </div>
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <section data-pdf-section="true" data-pdf-keep-together="true" data-pdf-grid="4" className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard
           label="Actual RMA Replacement"
           value={analytics.actualRmaReplacement}
@@ -611,7 +361,7 @@ export default function GlobalRmaPage() {
         />
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-2">
+      <section data-pdf-section="true" data-pdf-keep-together="true" data-pdf-grid="2" className="grid gap-6 xl:grid-cols-2">
         <ChartCard title="Month-wise Actual RMA">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={analytics.byMonth || []}>
@@ -733,12 +483,8 @@ export default function GlobalRmaPage() {
         </ChartCard>
       </section>
 
-      <div data-html2canvas-ignore="true">
-
-        
-
-              <RmaTable rows={rows} />
-
+      <div data-pdf-section="true" data-pdf-table="true">
+        <RmaTable rows={rows} />
       </div>
 
       {loading ? (
@@ -747,5 +493,6 @@ export default function GlobalRmaPage() {
         </div>
       ) : null}
     </div>
+</>
   );
 }

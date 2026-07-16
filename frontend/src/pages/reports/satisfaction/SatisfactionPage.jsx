@@ -20,7 +20,7 @@ import * as XLSX from "xlsx";
 import ChartCard from "../../../components/ChartCard";
 import MetricCard from "../../../components/MetricCard";
 import ReportHeader from "../../../components/ReportHeader";
-import { exportDashboardPdf } from "../../../utils/dashboardPdfExport";
+import { exportDashboardPdf, waitForPdfUiPaint } from "../../../utils/dashboardPdfExport";
 
 import SatisfactionFilters from "./SatisfactionFilters";
 import SatisfactionReportTable from "./SatisfactionReportTable";
@@ -80,7 +80,6 @@ function DarkTooltip({
 
   return (
     <div
-      id="satisfaction-pdf-content"
       className="rounded-xl border border-zinc-700 bg-black px-4 py-3 text-xs shadow-2xl"
     >
       <p className="font-black text-white">
@@ -175,6 +174,10 @@ export default function SatisfactionPage() {
     error,
     setError,
   ] = useState("");
+
+  const [pdfExporting, setPdfExporting] = useState(false);
+  const [pdfProgress, setPdfProgress] = useState(0);
+  const [pdfMessage, setPdfMessage] = useState("");
 
   const analytics =
     report?.analytics || {};
@@ -299,42 +302,85 @@ export default function SatisfactionPage() {
     );
   }
 
-  async function exportPdf() {
-    setError("");
-
-    try {
-      await exportDashboardPdf({
-        rootId: "satisfaction-pdf-content",
-        title: "Satisfaction Analytics Dashboard",
-        subtitle:
-          "Customer satisfaction, rating, category and comment analytics",
-        filename: "satisfaction-analytics-dashboard",
-        recordCount:
-          report?.total ?? rows.length,
-        syncedAt:
-          report?.syncedAt,
-      });
-    } catch (pdfError) {
-      setError(
-        pdfError?.message ||
-          "Unable to export dashboard PDF.",
-      );
-    }
+ async function exportPdf() {
+  if (pdfExporting) {
+    return;
   }
 
+  setError("");
+  setPdfExporting(true);
+  setPdfProgress(1);
+  setPdfMessage(
+    "Preparing Satisfaction metrics, charts and customer feedback table...",
+  );
+
+  await waitForPdfUiPaint();
+
+  try {
+    await exportDashboardPdf({
+      rootId:
+        "satisfaction-pdf-content",
+
+      title:
+        "Satisfaction Analytics",
+
+      filename:
+        "satisfaction-analytics-dashboard",
+
+      onProgress: ({
+        progress,
+        message,
+      }) => {
+        setPdfProgress(
+          progress,
+        );
+
+        setPdfMessage(
+          message,
+        );
+      },
+    });
+
+    setPdfProgress(100);
+    setPdfMessage(
+      "Satisfaction Analytics PDF is ready. Download started.",
+    );
+
+    await new Promise(
+      (resolve) => {
+        window.setTimeout(
+          resolve,
+          1400,
+        );
+      },
+    );
+  } catch (pdfError) {
+    setError(
+      pdfError?.message ||
+        "Unable to export Satisfaction PDF.",
+    );
+  } finally {
+    setPdfExporting(false);
+    setPdfProgress(0);
+    setPdfMessage("");
+  }
+}
+
   return (
-    <div className="min-w-0 max-w-full space-y-6 overflow-x-hidden">
-      <div data-html2canvas-ignore="true">
+    <>
+      <div
+      id="satisfaction-pdf-content"
+      className="min-w-0 max-w-full space-y-6 overflow-x-hidden"
+    >
+      <div data-pdf-skip="true">
         <ReportHeader
           title="Satisfaction Analytics"
-          // subtitle="Google Sheet customer satisfaction analytics with date-wise, category-wise, rating and comment reporting."
           syncedAt={
             report?.syncedAt
           }
-          loading={syncing}
-          onSync={handleSync}
           onExcel={exportExcel}
           onPdf={exportPdf}
+          exportingPdf={pdfExporting}
         />
       </div>
 
@@ -360,7 +406,7 @@ export default function SatisfactionPage() {
 
       </div>
 
-      <section className="grid min-w-0 gap-4 md:grid-cols-2 xl:grid-cols-5 [&>*]:min-w-0">
+      <section data-pdf-section="true" data-pdf-keep-together="true" data-pdf-grid="5" className="grid min-w-0 gap-4 md:grid-cols-2 xl:grid-cols-5 [&>*]:min-w-0">
         <MetricCard
           label="Total Responses"
           value={
@@ -402,7 +448,7 @@ export default function SatisfactionPage() {
         />
       </section>
 
-      <section>
+      <section data-pdf-section="true" data-pdf-keep-together="true">
         <ChartCard title="Date-wise Satisfaction">
           <ResponsiveContainer
             width="100%"
@@ -449,7 +495,7 @@ export default function SatisfactionPage() {
         </ChartCard>
       </section>
 
-      <section className="grid min-w-0 gap-6 xl:grid-cols-2 [&>*]:min-w-0">
+      <section data-pdf-section="true" data-pdf-keep-together="true" data-pdf-grid="2" className="grid min-w-0 gap-6 xl:grid-cols-2 [&>*]:min-w-0">
         <ChartCard title="Category-wise Satisfaction">
           <ResponsiveContainer
             width="100%"
@@ -703,18 +749,13 @@ export default function SatisfactionPage() {
         </ChartCard>
       </section>
 
-      <div data-html2canvas-ignore="true">
-
-        
-
+      <div data-pdf-section="true" data-pdf-table="true">
               <SatisfactionReportTable
 
                 title="Customer Satisfaction Report Data"
 
                 rows={rows}
-
               />
-
       </div>
 
       {loading ? (
@@ -723,5 +764,6 @@ export default function SatisfactionPage() {
         </div>
       ) : null}
     </div>
+</>
   );
 }

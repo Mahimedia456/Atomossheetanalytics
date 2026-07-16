@@ -28,7 +28,7 @@ import AgentReportTable from "./AgentReportTable";
 import ChartCard from "../../../components/ChartCard";
 import MetricCard from "../../../components/MetricCard";
 import ReportHeader from "../../../components/ReportHeader";
-import { exportDashboardPdf } from "../../../utils/dashboardPdfExport";
+import { exportDashboardPdf, waitForPdfUiPaint } from "../../../utils/dashboardPdfExport";
 
 import {
   fetchAgentReport,
@@ -103,7 +103,6 @@ function DarkTooltip({
 
   return (
     <div
-      id="agent-performance-pdf-content"
       className="rounded-xl border border-zinc-700 bg-black px-4 py-3 text-xs shadow-2xl"
     >
       <p className="mb-2 font-black text-white">
@@ -209,6 +208,10 @@ export default function AgentPerformancePage() {
     error,
     setError,
   ] = useState("");
+
+  const [pdfExporting, setPdfExporting] = useState(false);
+  const [pdfProgress, setPdfProgress] = useState(0);
+  const [pdfMessage, setPdfMessage] = useState("");
 
   const [
     solvedLimit,
@@ -446,29 +449,69 @@ export default function AgentPerformancePage() {
     );
   }
 
-  async function exportPdf() {
-    setError("");
-
-    try {
-      await exportDashboardPdf({
-        rootId: "agent-performance-pdf-content",
-        title: "Agent Performance Dashboard",
-        subtitle:
-          "Resolution, satisfaction, response time, turnaround and SLA analytics",
-        filename: "agent-performance-dashboard",
-        recordCount:
-          report?.total ?? ticketRows.length,
-        syncedAt:
-          report?.syncedAt,
-      });
-    } catch (pdfError) {
-      setError(
-        pdfError?.message ||
-          "Unable to export dashboard PDF.",
-      );
-    }
+async function exportPdf() {
+  if (pdfExporting) {
+    return;
   }
 
+  setError("");
+  setPdfExporting(true);
+  setPdfProgress(1);
+  setPdfMessage(
+    "Preparing Agent Performance metrics, charts and report table...",
+  );
+
+  await waitForPdfUiPaint();
+
+  try {
+    await exportDashboardPdf({
+      rootId:
+        "agent-performance-pdf-content",
+
+      title:
+        "Agent Performance",
+
+      filename:
+        "agent-performance-dashboard",
+
+      onProgress: ({
+        progress,
+        message,
+      }) => {
+        setPdfProgress(
+          progress,
+        );
+
+        setPdfMessage(
+          message,
+        );
+      },
+    });
+
+    setPdfProgress(100);
+    setPdfMessage(
+      "Agent Performance PDF is ready. Download started.",
+    );
+
+    await new Promise(
+      (resolve) => {
+        window.setTimeout(
+          resolve,
+          1400,
+        );
+      },
+    );
+  } catch (pdfError) {
+    setError(
+      pdfError?.message ||
+        "Unable to export Agent Performance PDF.",
+    );
+  } finally {
+    setPdfExporting(false);
+    setPdfProgress(0);
+    setPdfMessage("");
+  }
+}
   const solvedData =
     limitData(
       analytics.bySolvedAgent ||
@@ -522,19 +565,17 @@ export default function AgentPerformancePage() {
     analytics.byCategory || [];
 
   return (
-    <div
+    <>
+      <div
       id="agent-performance-pdf-content"
       className="space-y-6"
     >
-      <div data-html2canvas-ignore="true">
+      <div data-pdf-skip="true">
         <ReportHeader
           title="Agent Performance"
-          // subtitle="Agent ticket resolution, satisfaction, per-ticket response time, resolution time, turnaround and calculated SLA analytics."
           syncedAt={
             report?.syncedAt
           }
-          loading={syncing}
-          onSync={handleSync}
           onUnsync={
             handleUnsync
           }
@@ -542,6 +583,7 @@ export default function AgentPerformancePage() {
             exportExcel
           }
           onPdf={exportPdf}
+          exportingPdf={pdfExporting}
         />
       </div>
 
@@ -571,7 +613,7 @@ export default function AgentPerformancePage() {
 
       </div>
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <section data-pdf-section="true" data-pdf-keep-together="true" data-pdf-grid="4" className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard
           label="Total Tickets"
           value={
@@ -642,7 +684,7 @@ export default function AgentPerformancePage() {
         />
       </section>
 
-      <section>
+      <section data-pdf-section="true" data-pdf-keep-together="true">
         <ChartCard
           title="Date-wise Agent Performance"
           showLimit={false}
@@ -719,7 +761,7 @@ export default function AgentPerformancePage() {
         </ChartCard>
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-2">
+      <section data-pdf-section="true" data-pdf-keep-together="true" data-pdf-grid="2" className="grid gap-6 xl:grid-cols-2">
         <ChartCard
           title="Agent-wise Solved Tickets"
           limit={
@@ -1161,7 +1203,7 @@ export default function AgentPerformancePage() {
         </ChartCard>
       </section>
 
-      <section>
+      <section data-pdf-section="true" data-pdf-keep-together="true">
         <ChartCard
           title="Agent Turnaround Time in Hours"
           limit={
@@ -1215,7 +1257,7 @@ export default function AgentPerformancePage() {
         </ChartCard>
       </section>
 
-      <section>
+      <section data-pdf-section="true" data-pdf-keep-together="true">
         <ChartCard
           title="Agent SLA Compliance"
           limit={slaLimit}
@@ -1297,16 +1339,11 @@ export default function AgentPerformancePage() {
         </ChartCard>
       </section>
 
-      <div data-html2canvas-ignore="true">
-
-        
-
+      <div data-pdf-section="true" data-pdf-table="true">
               <AgentReportTable
 
                 rows={agentSummary}
-
               />
-
       </div>
 
       {loading ? (
@@ -1315,5 +1352,6 @@ export default function AgentPerformancePage() {
         </div>
       ) : null}
     </div>
+</>
   );
 }
