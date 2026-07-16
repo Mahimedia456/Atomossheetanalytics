@@ -16,6 +16,7 @@ import * as XLSX from "xlsx";
 import ChartCard from "../../../components/ChartCard";
 import MetricCard from "../../../components/MetricCard";
 import ReportHeader from "../../../components/ReportHeader";
+import ReportPdfLoader from "../../../components/ReportPdfLoader";
 import { exportDashboardPdf, waitForPdfUiPaint } from "../../../utils/dashboardPdfExport";
 import RushRmaFilters, { initialRushRmaFilters } from "./RushRmaFilters";
 import {
@@ -247,7 +248,13 @@ async function exportPdf() {
         message,
       }) => {
         setPdfProgress(
-          progress,
+          Math.min(
+            99,
+            Math.max(
+              1,
+              Number(progress) || 1,
+            ),
+          ),
         );
 
         setPdfMessage(
@@ -283,6 +290,13 @@ async function exportPdf() {
 
   return (
     <>
+      <ReportPdfLoader
+        open={pdfExporting}
+        reportName="Rush RMA"
+        progress={pdfProgress}
+        message={pdfMessage}
+      />
+
       <div
       id="rush-rma-pdf-content"
       className="space-y-6"
@@ -489,7 +503,7 @@ async function exportPdf() {
 
       {loading ? (
         <div data-html2canvas-ignore="true" className="fixed bottom-5 right-5 rounded-full border border-[#00dcc5]/30 bg-black px-4 py-2 text-xs font-black text-[#00dcc5]">
-          Loading Global RMA...
+          Loading  RMA...
         </div>
       ) : null}
     </div>
