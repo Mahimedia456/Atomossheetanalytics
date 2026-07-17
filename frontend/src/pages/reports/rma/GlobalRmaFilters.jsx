@@ -82,6 +82,24 @@ export default function GlobalRmaFilters({
   onChange,
   onReset,
 }) {
+  const showCompanyFilter = [
+    "Company",
+    "Reseller",
+    "Distributor",
+  ].includes(filters.customerType);
+
+  const companyOptions =
+    options.companyNamesByCustomerType?.[
+      filters.customerType
+    ] || options.companyNames || [];
+
+  const companyAllLabel =
+    filters.customerType === "Distributor"
+      ? "All distributors"
+      : filters.customerType === "Reseller"
+        ? "All resellers"
+        : "All companies";
+
   return (
     <section className="dashboard-card p-5 no-print">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -127,7 +145,7 @@ export default function GlobalRmaFilters({
               type="search"
               value={filters.search || ""}
               onChange={onChange}
-              placeholder="RMA number, product, serial, customer or fault..."
+              placeholder="RMA number, product, serial, customer, company or fault..."
               className={`${filterClassName} pl-11`}
             />
           </div>
@@ -137,9 +155,7 @@ export default function GlobalRmaFilters({
           label="Region"
           name="region"
           value={filters.region}
-          options={
-            options.regions || []
-          }
+          options={options.regions || []}
           onChange={onChange}
           allLabel="All regions"
         />
@@ -147,13 +163,8 @@ export default function GlobalRmaFilters({
         <SelectFilter
           label="Warranty"
           name="warrantyStatus"
-          value={
-            filters.warrantyStatus
-          }
-          options={
-            options.warrantyStatuses ||
-            []
-          }
+          value={filters.warrantyStatus}
+          options={options.warrantyStatuses || []}
           onChange={onChange}
           allLabel="INW and OOW"
         />
@@ -162,9 +173,7 @@ export default function GlobalRmaFilters({
           label="Atomos product"
           name="product"
           value={filters.product}
-          options={
-            options.products || []
-          }
+          options={options.products || []}
           onChange={onChange}
           allLabel="All products"
         />
@@ -173,9 +182,7 @@ export default function GlobalRmaFilters({
           label="RMA status"
           name="rmaStatus"
           value={filters.rmaStatus}
-          options={
-            options.rmaStatuses || []
-          }
+          options={options.rmaStatuses || []}
           onChange={onChange}
           allLabel="All statuses"
         />
@@ -184,9 +191,7 @@ export default function GlobalRmaFilters({
           label="Action taken"
           name="actionTaken"
           value={filters.actionTaken}
-          options={
-            options.actionsTaken || []
-          }
+          options={options.actionsTaken || []}
           onChange={onChange}
           allLabel="All actions"
         />
@@ -194,13 +199,8 @@ export default function GlobalRmaFilters({
         <SelectFilter
           label="Fault category"
           name="faultCategory"
-          value={
-            filters.faultCategory
-          }
-          options={
-            options.faultCategories ||
-            []
-          }
+          value={filters.faultCategory}
+          options={options.faultCategories || []}
           onChange={onChange}
           allLabel="All fault categories"
         />
@@ -209,20 +209,27 @@ export default function GlobalRmaFilters({
           label="Reseller / Customer"
           name="customerType"
           value={filters.customerType}
-          options={
-            options.customerTypes || []
-          }
+          options={options.customerTypes || []}
           onChange={onChange}
           allLabel="All customer channels"
         />
+
+        {showCompanyFilter ? (
+          <SelectFilter
+            label="Company (if Applicable)"
+            name="companyName"
+            value={filters.companyName}
+            options={companyOptions}
+            onChange={onChange}
+            allLabel={companyAllLabel}
+          />
+        ) : null}
 
         <SelectFilter
           label="Return year"
           name="year"
           value={filters.year}
-          options={
-            options.years || []
-          }
+          options={options.years || []}
           onChange={onChange}
           allLabel="All years"
         />
@@ -231,9 +238,7 @@ export default function GlobalRmaFilters({
           label="Return month"
           name="month"
           value={filters.month}
-          options={
-            options.months || []
-          }
+          options={options.months || []}
           onChange={onChange}
           allLabel="All months"
         />
@@ -243,10 +248,7 @@ export default function GlobalRmaFilters({
           name="dateFrom"
           value={filters.dateFrom}
           onChange={onChange}
-          max={
-            filters.dateTo ||
-            undefined
-          }
+          max={filters.dateTo || undefined}
         />
 
         <DateFilter
@@ -254,10 +256,7 @@ export default function GlobalRmaFilters({
           name="dateTo"
           value={filters.dateTo}
           onChange={onChange}
-          min={
-            filters.dateFrom ||
-            undefined
-          }
+          min={filters.dateFrom || undefined}
         />
       </div>
     </section>

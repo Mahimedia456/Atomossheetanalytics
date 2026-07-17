@@ -461,6 +461,17 @@ function deriveFaultCategory(description) {
       ],
     },
     {
+      name: "Manufacturer Fault",
+      keywords: [
+        "housing issue",
+        "housing fault",
+        "manufacturing fault",
+        "manufacturer fault",
+        "factory fault",
+        "assembly fault",
+      ],
+    },
+    {
       name: "Physical Damage",
       keywords: [
         "broken",
@@ -472,7 +483,6 @@ function deriveFaultCategory(description) {
         "dented",
         "dent",
         "plastic",
-        "housing",
         "connector broken",
         "physical",
       ],
@@ -599,6 +609,214 @@ function normalizeNumber(value, fallback = 0) {
     : fallback;
 }
 
+function normalizeReceivedStockType(value) {
+  const raw = cleanText(value);
+
+  if (!raw) {
+    return "";
+  }
+
+  const normalized = raw
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, " ")
+    .trim();
+
+  const tokens = normalized.split(/\s+/).filter(Boolean);
+
+  if (tokens.includes("D") || normalized.includes("D STOCK") || normalized === "DSTOCK") {
+    return "D Stock";
+  }
+
+  if (tokens.includes("B") || normalized.includes("B STOCK") || normalized === "BSTOCK") {
+    return "B Stock";
+  }
+
+  if (tokens.includes("A") || normalized.includes("A STOCK") || normalized === "ASTOCK") {
+    return "A Stock";
+  }
+
+  if (tokens.includes("R") || normalized.includes("R STOCK") || normalized === "RSTOCK") {
+    return "R Stock";
+  }
+
+  return normalizeTitle(raw) || "Other Stock";
+}
+
+function isReceiveStockType(value) {
+  return Boolean(normalizeReceivedStockType(value));
+}
+
+function deriveSentStockType(replacementSku) {
+  const raw = cleanText(replacementSku);
+
+  if (!raw) {
+    return "";
+  }
+
+  const normalized = raw
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, " ")
+    .trim();
+
+  const tokens = normalized.split(/\s+/).filter(Boolean);
+
+  if (
+    tokens.includes("R") ||
+    normalized.includes("R STOCK") ||
+    /(^|[-_/\s])R($|[-_/\s])/.test(raw.toUpperCase())
+  ) {
+    return "R Stock";
+  }
+
+  if (
+    tokens.includes("B") ||
+    normalized.includes("B STOCK") ||
+    /(^|[-_/\s])B($|[-_/\s])/.test(raw.toUpperCase())
+  ) {
+    return "B Stock";
+  }
+
+  return "Other Stock";
+}
+
+function buildActionProductSummary(rows) {
+  const totals = new Map();
+
+  rows.forEach((row) => {
+    const action = cleanText(row.actionTaken) || "Unknown";
+    const product = cleanText(row.productName) || "Unknown Product";
+    const key = `${action}|||${product}`;
+
+    totals.set(
+      key,
+      (totals.get(key) || 0) + Math.max(1, Number(row.quantity || 1)),
+    );
+  });
+
+  return Array.from(totals.entries())
+    .map(([key, value]) => {
+      const [action, product] = key.split("|||");
+
+      return {
+        name: `${action} — ${product}`,
+        action,
+        product,
+        value,
+      };
+    })
+    .filter(
+      (item) =>
+        item.action !== "Unknown" &&
+        item.product !== "Unknown Product",
+    )
+    .sort((a, b) => b.value - a.value || a.name.localeCompare(b.name));
+}
+
+function buildProductFaultDeviceMap(rows) {
+  const map = new Map();
+
+  rows.forEach((row) => {
+    const productWithFault = cleanText(row.productWithFault);
+    const deviceName = cleanText(row.deviceName || row.productName);
+
+    if (productWithFault && deviceName) {
+      map.set(normalizeKey(productWithFault), deviceName);
+    }
+  });
+
+  return map;
+}
+
+function buildReceivedStockByDevice(rows, allRows = rows) {
+  const productFaultDeviceMap =
+    buildProductFaultDeviceMap(allRows);
+
+  const totals = new Map();
+
+  rows
+    .filter((row) => row.receiveOnly)
+    .forEach((row) => {
+      const mappedDeviceName =
+        productFaultDeviceMap.get(
+          normalizeKey(row.productWithFault),
+        );
+
+      const name = cleanText(
+        row.deviceName ||
+          mappedDeviceName ||
+          row.productName ||
+          row.productWithFault,
+      ) || "Unknown Product";
+
+      const quantity = Math.max(
+        1,
+        Number(row.quantity || 1),
+      );
+
+      totals.set(
+        name,
+        (totals.get(name) || 0) + quantity,
+      );
+    });
+
+  return Array.from(totals.entries())
+    .map(([name, value]) => ({ name, value }))
+    .filter((item) => item.name !== "Unknown Product")
+    .sort(
+      (a, b) =>
+        b.value - a.value ||
+        a.name.localeCompare(b.name),
+    );
+}
+
+function buildReceivedStockTypeSummary(rows) {
+  return countBy(
+    rows.filter((row) => row.receiveOnly),
+    "receivedStockType",
+    {
+      useQuantity: true,
+      unknownLabel: "Other Stock",
+    },
+  );
+}
+
+function buildSentStockByDevice(rows) {
+  const totals = new Map();
+
+  rows
+    .filter((row) => cleanText(row.replacementSku))
+    .forEach((row) => {
+      const name = cleanText(row.deviceName || row.productName) || "Unknown Product";
+
+      if (!totals.has(name)) {
+        totals.set(name, {
+          name,
+          RStock: 0,
+          BStock: 0,
+          OtherStock: 0,
+          total: 0,
+        });
+      }
+
+      const item = totals.get(name);
+      const quantity = Math.max(1, Number(row.quantity || 1));
+
+      if (row.sentStockType === "R Stock") {
+        item.RStock += quantity;
+      } else if (row.sentStockType === "B Stock") {
+        item.BStock += quantity;
+      } else {
+        item.OtherStock += quantity;
+      }
+
+      item.total += quantity;
+    });
+
+  return Array.from(totals.values())
+    .filter((item) => item.name !== "Unknown Product")
+    .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
+}
+
 function normalizeGlobalRmaRow(
   row,
   sourceRegion,
@@ -648,6 +866,8 @@ function normalizeGlobalRmaRow(
 
   const replacementSku = cleanText(
     getValue(row, [
+      "Product SKU for replacement (no more ninja's without my approval)",
+      "Product SKU for replacement (no more ninjas without my approval)",
       "Product SKU for replacement",
       "Product SKU For Replacement",
       "Replacement Product SKU",
@@ -696,6 +916,20 @@ function normalizeGlobalRmaRow(
   const stockType = cleanText(
     getValue(row, ["Stock Type"]),
   );
+
+  const receivedStockType =
+    normalizeReceivedStockType(stockType);
+
+  const receiveOnly = Boolean(receivedStockType);
+
+  const receiveDeviceName =
+    deviceName ||
+    productName ||
+    productWithFault ||
+    replacementSku ||
+    "Unknown Product";
+
+  const sentStockType = deriveSentStockType(replacementSku);
 
   const quantity = Math.max(
     1,
@@ -828,6 +1062,21 @@ function normalizeGlobalRmaRow(
   const customerType =
     normalizeAccountType(resellerCustomerRaw);
 
+  /*
+   * Read the company/reseller name from the exact source column
+   * available in both USA and EMEA tabs.
+   */
+  const companyName = cleanText(
+    getValue(row, [
+      "Company (if Applicable)",
+      "Company (If Applicable)",
+      "Company if Applicable",
+      "Company",
+      "Reseller Company",
+      "Reseller Name",
+    ]),
+  );
+
   const warrantySource = [
     getValue(row, [
       "INW / OOW",
@@ -925,6 +1174,9 @@ function normalizeGlobalRmaRow(
 
     rmaType: rmaType || "Unknown",
     stockType: stockType || "Unknown",
+    receivedStockType,
+    receiveOnly,
+    sentStockType,
     quantity,
 
     rmaStatus,
@@ -941,6 +1193,7 @@ function normalizeGlobalRmaRow(
     customerType,
     accountType: customerType,
     resellerCustomerRaw,
+    companyName,
 
     customerReturnTrackingNumber,
     trackingNumber,
@@ -1505,6 +1758,7 @@ export function filterGlobalRmaRows(
     rmaType,
     stockType,
     customerType,
+    companyName,
     country,
     year,
     month,
@@ -1580,6 +1834,13 @@ export function filterGlobalRmaRows(
     }
 
     if (
+      companyName &&
+      row.companyName !== companyName
+    ) {
+      return false;
+    }
+
+    if (
       country &&
       row.country !== country
     ) {
@@ -1630,6 +1891,7 @@ export function filterGlobalRmaRows(
         row.replacementSerialNumber,
         row.rmaType,
         row.stockType,
+        row.sentStockType,
         row.rmaStatus,
         row.actionTaken,
         row.faultCategory,
@@ -1637,6 +1899,7 @@ export function filterGlobalRmaRows(
         row.resellerCustomerRaw,
         row.customerType,
         row.accountType,
+        row.companyName,
         row.country,
         row.state,
         row.city,
@@ -1874,6 +2137,102 @@ export function buildGlobalRmaAnalytics(
       },
     ),
 
+    actionProductSummary:
+      buildActionProductSummary(rows),
+
+    replacementUnitsByDevice: countBy(
+      rows.filter((row) => cleanText(row.replacementSku)),
+      "deviceName",
+      {
+        useQuantity: true,
+        unknownLabel: "Unknown Product",
+      },
+    ).filter((item) => item.name !== "Unknown Product"),
+
+    receiveOnlyByDevice:
+      buildReceivedStockByDevice(rows),
+
+    dStockReceivedByDevice:
+      buildReceivedStockByDevice(
+        rows.filter(
+          (row) =>
+            row.receivedStockType === "D Stock",
+        ),
+        rows,
+      ),
+
+    receivedStockTypeSummary:
+      buildReceivedStockTypeSummary(rows),
+
+    sentStockByDevice:
+      buildSentStockByDevice(rows),
+
+    stockMovementSummary: [
+      ...buildReceivedStockTypeSummary(rows).map(
+        (item) => ({
+          name: `${item.name} Received`,
+          value: item.value,
+        }),
+      ),
+      {
+        name: "R Stock Sent",
+        value: rows
+          .filter((row) => row.sentStockType === "R Stock")
+          .reduce(
+            (sum, row) =>
+              sum + Math.max(1, Number(row.quantity || 1)),
+            0,
+          ),
+      },
+      {
+        name: "B Stock Sent",
+        value: rows
+          .filter((row) => row.sentStockType === "B Stock")
+          .reduce(
+            (sum, row) =>
+              sum + Math.max(1, Number(row.quantity || 1)),
+            0,
+          ),
+      },
+      {
+        name: "Other Stock Sent",
+        value: rows
+          .filter((row) => row.sentStockType === "Other Stock")
+          .reduce(
+            (sum, row) =>
+              sum + Math.max(1, Number(row.quantity || 1)),
+            0,
+          ),
+      },
+    ],
+
+    totalDStockReceived: rows
+      .filter(
+        (row) =>
+          row.receivedStockType === "D Stock",
+      )
+      .reduce(
+        (sum, row) =>
+          sum + Math.max(1, Number(row.quantity || 1)),
+        0,
+      ),
+
+    totalRStockSent: rows
+      .filter((row) => row.sentStockType === "R Stock")
+      .reduce(
+        (sum, row) =>
+          sum + Math.max(1, Number(row.quantity || 1)),
+        0,
+      ),
+
+    totalBStockSent: rows
+      .filter((row) => row.sentStockType === "B Stock")
+      .reduce(
+        (sum, row) =>
+          sum + Math.max(1, Number(row.quantity || 1)),
+        0,
+      ),
+
     /*
      * Existing High / Low charts:
      * lifetime filtered case counts only.
@@ -1981,6 +2340,26 @@ export function buildGlobalRmaFilterOptions(
       rows,
       "customerType",
     ),
+
+    companyNames: uniqueValues(
+      rows,
+      "companyName",
+    ),
+
+    companyNamesByCustomerType: {
+      Company: uniqueValues(
+        rows.filter((row) => row.customerType === "Company"),
+        "companyName",
+      ),
+      Reseller: uniqueValues(
+        rows.filter((row) => row.customerType === "Reseller"),
+        "companyName",
+      ),
+      Distributor: uniqueValues(
+        rows.filter((row) => row.customerType === "Distributor"),
+        "companyName",
+      ),
+    },
 
     countries: uniqueValues(
       rows,

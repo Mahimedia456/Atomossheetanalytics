@@ -4,7 +4,7 @@ import {
 
 function clean(value) {
   return String(
-    value || "",
+    value ?? "",
   )
     .replace(
       /\s+/g,
@@ -14,21 +14,23 @@ function clean(value) {
 }
 
 function toNumber(value) {
-  const num = Number(
-    String(
-      value || "0",
+  const normalizedValue = String(
+    value ?? "0",
+  )
+    .replace(
+      /,/g,
+      "",
     )
-      .replace(
-        /,/g,
-        "",
-      )
-      .trim(),
+    .trim();
+
+  const numberValue = Number(
+    normalizedValue,
   );
 
   return Number.isFinite(
-    num,
+    numberValue,
   )
-    ? num
+    ? numberValue
     : 0;
 }
 
@@ -38,10 +40,9 @@ function getValue(
 ) {
   for (const key of keys) {
     if (
-      row[key] !==
-        undefined &&
-      clean(row[key]) !==
-        ""
+      row[key] !== undefined &&
+      row[key] !== null &&
+      clean(row[key]) !== ""
     ) {
       return row[key];
     }
@@ -51,8 +52,9 @@ function getValue(
 }
 
 function normalizeMonth(value) {
-  const raw =
-    clean(value);
+  const raw = clean(
+    value,
+  );
 
   if (!raw) {
     return "Unknown";
@@ -64,25 +66,37 @@ function normalizeMonth(value) {
   const months = {
     january: "January",
     jan: "January",
+
     february: "February",
     feb: "February",
+
     march: "March",
     mar: "March",
+
     april: "April",
     apr: "April",
+
     may: "May",
+
     june: "June",
     jun: "June",
+
     july: "July",
     jul: "July",
+
     august: "August",
     aug: "August",
+
     september: "September",
     sep: "September",
+    sept: "September",
+
     october: "October",
     oct: "October",
+
     november: "November",
     nov: "November",
+
     december: "December",
     dec: "December",
   };
@@ -145,10 +159,17 @@ function normalizeRmaRow(
           row,
           [
             "Actual RMA Replacement",
+            "Actual Rma Replacement",
+            "actual rma replacement",
           ],
         ),
       ),
 
+    /*
+     * Reads the new column from both:
+     * US RMA
+     * EMEA RMA
+     */
     dStockUnitsReceived:
       toNumber(
         getValue(
@@ -156,6 +177,9 @@ function normalizeRmaRow(
           [
             "D Stock units received",
             "D Stock Units Received",
+            "D stock units received",
+            "D-Stock Units Received",
+            "D Stock Received",
           ],
         ),
       ),
@@ -167,6 +191,7 @@ function normalizeRmaRow(
           [
             "A-Stock Sent Out",
             "A Stock Sent Out",
+            "A-stock sent out",
           ],
         ),
       ),
@@ -177,6 +202,8 @@ function normalizeRmaRow(
           row,
           [
             "RMA Units Sent Out",
+            "Rma Units Sent Out",
+            "RMA units sent out",
           ],
         ),
       ),
@@ -188,6 +215,7 @@ function normalizeRmaRow(
           [
             "B-Stock Sent Out",
             "B Stock Sent Out",
+            "B-stock sent out",
           ],
         ),
       ),
@@ -199,6 +227,7 @@ function normalizeRmaRow(
           [
             "D - Stock",
             "D Stock",
+            "D-Stock",
           ],
         ),
       ),
@@ -210,6 +239,7 @@ function normalizeRmaRow(
           [
             "B - Stock",
             "B Stock",
+            "B-Stock",
           ],
         ),
       ),
@@ -221,6 +251,7 @@ function normalizeRmaRow(
           [
             "A - Stock",
             "A Stock",
+            "A-Stock",
           ],
         ),
       ),
@@ -232,6 +263,7 @@ function normalizeRmaRow(
           [
             "Pending to ship",
             "Pending To Ship",
+            "Pending to Ship",
           ],
         ),
       ),
@@ -243,6 +275,7 @@ function normalizeRmaRow(
           [
             "Pending to receive",
             "Pending To Receive",
+            "Pending to Receive",
           ],
         ),
       ),
@@ -253,6 +286,8 @@ function normalizeRmaRow(
           row,
           [
             "Google Drive RMA Cases",
+            "Google drive RMA cases",
+            "Total Queries",
           ],
         ),
       ),
@@ -280,9 +315,8 @@ function countBy(
       const value =
         valueKey
           ? Number(
-              row[
-                valueKey
-              ] || 0,
+              row[valueKey] ||
+                0,
             )
           : 1;
 
@@ -357,9 +391,9 @@ export function filterRmaRows(
       }
 
       /*
-       * Frontend key remains "product",
-       * but its dropdown value now comes
-       * from the Description column.
+       * Frontend filter key remains product,
+       * but the selected value comes from
+       * the Description column.
        */
       if (
         filters.product &&
@@ -372,20 +406,36 @@ export function filterRmaRows(
       if (
         filters.search
       ) {
-        const text = [
+        const searchValue =
+          String(
+            filters.search,
+          )
+            .trim()
+            .toLowerCase();
+
+        const searchableText = [
           row.region,
           row.month,
           row.product,
           row.description,
+          row.actualRmaReplacement,
+          row.dStockUnitsReceived,
+          row.aStockSentOut,
+          row.rmaUnitsSentOut,
+          row.bStockSentOut,
+          row.dStock,
+          row.bStock,
+          row.aStock,
+          row.pendingToShip,
+          row.pendingToReceive,
+          row.googleDriveRmaCases,
         ]
           .join(" ")
           .toLowerCase();
 
         if (
-          !text.includes(
-            String(
-              filters.search,
-            ).toLowerCase(),
+          !searchableText.includes(
+            searchValue,
           )
         ) {
           return false;
@@ -400,75 +450,87 @@ export function filterRmaRows(
 export function buildRmaAnalytics(
   rows = [],
 ) {
+  const actualRmaReplacement =
+    sum(
+      rows,
+      "actualRmaReplacement",
+    );
+
+  const dStockUnitsReceived =
+    sum(
+      rows,
+      "dStockUnitsReceived",
+    );
+
+  const aStockSentOut =
+    sum(
+      rows,
+      "aStockSentOut",
+    );
+
+  const rmaUnitsSentOut =
+    sum(
+      rows,
+      "rmaUnitsSentOut",
+    );
+
+  const bStockSentOut =
+    sum(
+      rows,
+      "bStockSentOut",
+    );
+
+  const dStock =
+    sum(
+      rows,
+      "dStock",
+    );
+
+  const bStock =
+    sum(
+      rows,
+      "bStock",
+    );
+
+  const aStock =
+    sum(
+      rows,
+      "aStock",
+    );
+
+  const pendingToShip =
+    sum(
+      rows,
+      "pendingToShip",
+    );
+
+  const pendingToReceive =
+    sum(
+      rows,
+      "pendingToReceive",
+    );
+
+  const googleDriveRmaCases =
+    sum(
+      rows,
+      "googleDriveRmaCases",
+    );
+
   return {
     totalRows:
       rows.length,
 
-    actualRmaReplacement:
-      sum(
-        rows,
-        "actualRmaReplacement",
-      ),
-
-    dStockUnitsReceived:
-      sum(
-        rows,
-        "dStockUnitsReceived",
-      ),
-
-    aStockSentOut:
-      sum(
-        rows,
-        "aStockSentOut",
-      ),
-
-    rmaUnitsSentOut:
-      sum(
-        rows,
-        "rmaUnitsSentOut",
-      ),
-
-    bStockSentOut:
-      sum(
-        rows,
-        "bStockSentOut",
-      ),
-
-    dStock:
-      sum(
-        rows,
-        "dStock",
-      ),
-
-    bStock:
-      sum(
-        rows,
-        "bStock",
-      ),
-
-    aStock:
-      sum(
-        rows,
-        "aStock",
-      ),
-
-    pendingToShip:
-      sum(
-        rows,
-        "pendingToShip",
-      ),
-
-    pendingToReceive:
-      sum(
-        rows,
-        "pendingToReceive",
-      ),
-
-    googleDriveRmaCases:
-      sum(
-        rows,
-        "googleDriveRmaCases",
-      ),
+    actualRmaReplacement,
+    dStockUnitsReceived,
+    aStockSentOut,
+    rmaUnitsSentOut,
+    bStockSentOut,
+    dStock,
+    bStock,
+    aStock,
+    pendingToShip,
+    pendingToReceive,
+    googleDriveRmaCases,
 
     byMonth:
       countBy(
@@ -491,33 +553,41 @@ export function buildRmaAnalytics(
         "actualRmaReplacement",
       ),
 
+    /*
+     * New chart data.
+     * This is displayed beside Sent Out Summary.
+     */
+    dStockReceivedSummary: [
+      {
+        name:
+          "D Stock Received",
+        value:
+          dStockUnitsReceived,
+      },
+    ],
+
+    /*
+     * Existing stock balance summary.
+     * Frontend will render this at the end.
+     */
     stockSummary: [
       {
         name:
           "A Stock",
         value:
-          sum(
-            rows,
-            "aStock",
-          ),
+          aStock,
       },
       {
         name:
           "B Stock",
         value:
-          sum(
-            rows,
-            "bStock",
-          ),
+          bStock,
       },
       {
         name:
           "D Stock",
         value:
-          sum(
-            rows,
-            "dStock",
-          ),
+          dStock,
       },
     ],
 
@@ -526,28 +596,19 @@ export function buildRmaAnalytics(
         name:
           "A-Stock Sent Out",
         value:
-          sum(
-            rows,
-            "aStockSentOut",
-          ),
+          aStockSentOut,
       },
       {
         name:
           "B-Stock Sent Out",
         value:
-          sum(
-            rows,
-            "bStockSentOut",
-          ),
+          bStockSentOut,
       },
       {
         name:
           "RMA Units Sent Out",
         value:
-          sum(
-            rows,
-            "rmaUnitsSentOut",
-          ),
+          rmaUnitsSentOut,
       },
     ],
 
@@ -556,19 +617,13 @@ export function buildRmaAnalytics(
         name:
           "Pending to Ship",
         value:
-          sum(
-            rows,
-            "pendingToShip",
-          ),
+          pendingToShip,
       },
       {
         name:
           "Pending to Receive",
         value:
-          sum(
-            rows,
-            "pendingToReceive",
-          ),
+          pendingToReceive,
       },
     ],
   };
@@ -687,9 +742,12 @@ export async function fetchGlobalRmaSheetData() {
   return {
     source:
       "google_sheet",
+
     rows,
+
     total:
       rows.length,
+
     message:
       `Fetched ${rows.length} Global RMA rows from Google Sheet.`,
   };

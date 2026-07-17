@@ -73,6 +73,7 @@ const initialFilters = {
   actionTaken: "",
   faultCategory: "",
   customerType: "",
+  companyName: "",
   year: "",
   month: "",
   dateFrom: "",
@@ -137,6 +138,10 @@ const tableColumns = [
     label: "Stock Type",
   },
   {
+    key: "sentStockType",
+    label: "Sent Stock Type",
+  },
+  {
     key: "quantity",
     label: "Quantity",
   },
@@ -175,6 +180,10 @@ const tableColumns = [
   {
     key: "customerType",
     label: "Reseller / Customer",
+  },
+  {
+    key: "companyName",
+    label: "Company (if Applicable)",
   },
   {
     key: "country",
@@ -687,6 +696,10 @@ export default function GlobalRmaPage() {
     dateTrend: "10",
     yearCategory: "10",
     monthlyCategory: "10",
+    actionProduct: "25",
+    replacementUnits: "10",
+    receiveOnly: "10",
+    sentStockDevice: "10",
   });
 
   const [
@@ -895,6 +908,57 @@ export default function GlobalRmaPage() {
     [limitedMonthlyCategoryRows],
   );
 
+  const actionProductRows = useMemo(
+    () =>
+      applyChartLimit(
+        analytics.actionProductSummary || [],
+        chartLimits.actionProduct,
+      ),
+    [
+      analytics.actionProductSummary,
+      chartLimits.actionProduct,
+    ],
+  );
+
+  const replacementUnitRows = useMemo(
+    () =>
+      applyChartLimit(
+        analytics.replacementUnitsByDevice || [],
+        chartLimits.replacementUnits,
+      ),
+    [
+      analytics.replacementUnitsByDevice,
+      chartLimits.replacementUnits,
+    ],
+  );
+
+  const receiveOnlyRows = useMemo(
+    () =>
+      applyChartLimit(
+        analytics.receiveOnlyByDevice || [],
+        chartLimits.receiveOnly,
+      ),
+    [
+      analytics.receiveOnlyByDevice,
+      chartLimits.receiveOnly,
+    ],
+  );
+
+  const sentStockDeviceRows = useMemo(
+    () =>
+      applyChartLimit(
+        analytics.sentStockByDevice || [],
+        chartLimits.sentStockDevice,
+        {
+          valueKey: "total",
+        },
+      ),
+    [
+      analytics.sentStockByDevice,
+      chartLimits.sentStockDevice,
+    ],
+  );
+
   const productTrendHeight = useMemo(
     () =>
       calculateHorizontalChartHeight(
@@ -953,10 +1017,29 @@ export default function GlobalRmaPage() {
   function handleFilterChange(event) {
     const { name, value } = event.target;
 
-    setFilters((current) => ({
-      ...current,
-      [name]: value,
-    }));
+    setFilters((current) => {
+      const nextFilters = {
+        ...current,
+        [name]: value,
+      };
+
+      /*
+       * Company names are relevant only when the selected
+       * customer channel is Company, Reseller, or Distributor.
+       */
+      if (
+        name === "customerType" &&
+        ![
+          "Company",
+          "Reseller",
+          "Distributor",
+        ].includes(value)
+      ) {
+        nextFilters.companyName = "";
+      }
+
+      return nextFilters;
+    });
   }
 
   function handleResetFilters() {
@@ -1058,6 +1141,18 @@ export default function GlobalRmaPage() {
       {
         Metric: "Distributors",
         Value: analytics.totalDistributors || 0,
+      },
+      {
+        Metric: "D Stock Received",
+        Value: analytics.totalDStockReceived || 0,
+      },
+      {
+        Metric: "R Stock Sent",
+        Value: analytics.totalRStockSent || 0,
+      },
+      {
+        Metric: "B Stock Sent",
+        Value: analytics.totalBStockSent || 0,
       },
     ];
 
@@ -1271,6 +1366,27 @@ export default function GlobalRmaPage() {
           value={analytics.datedRmaCount || 0}
           hint="Records with valid return date"
           icon={CalendarDays}
+        />
+
+        <MetricCard
+          title="D Stock Received"
+          value={analytics.totalDStockReceived || 0}
+          hint="Units marked received in Stock Type"
+          icon={PackageCheck}
+        />
+
+        <MetricCard
+          title="R Stock Sent"
+          value={analytics.totalRStockSent || 0}
+          hint="Replacement SKU classified as R stock"
+          icon={PackageCheck}
+        />
+
+        <MetricCard
+          title="B Stock Sent"
+          value={analytics.totalBStockSent || 0}
+          hint="Replacement SKU classified as B stock"
+          icon={PackageCheck}
         />
       </section>
 
@@ -1973,6 +2089,242 @@ export default function GlobalRmaPage() {
               ),
             )}
           </LineChart>
+        </ResponsiveContainer>
+      </ChartCard>
+
+      <section
+        data-pdf-section="true"
+        data-pdf-keep-together="true"
+        data-pdf-grid="2"
+        className="grid min-w-0 items-start gap-6 2xl:grid-cols-2"
+      >
+        <ChartCard
+          title="Action and Product Name"
+          subtitle="How many units of each Product Name were handled under every Action"
+          limit={chartLimits.actionProduct}
+          onLimitChange={(value) =>
+            updateChartLimit("actionProduct", value)
+          }
+          height={calculateHorizontalChartHeight(
+            actionProductRows.length,
+            {
+              minimum: 440,
+              rowHeight: 38,
+              extra: 100,
+              maximum: 2200,
+            },
+          )}
+        >
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={actionProductRows}
+              layout="vertical"
+              margin={{
+                top: 10,
+                right: 35,
+                left: 45,
+                bottom: 20,
+              }}
+            >
+              <CartesianGrid stroke="#18181b" strokeDasharray="4 4" />
+              <XAxis
+                type="number"
+                allowDecimals={false}
+                tick={{ fill: "#a1a1aa", fontSize: 11 }}
+              />
+              <YAxis
+                type="category"
+                dataKey="name"
+                width={245}
+                interval={0}
+                tick={{ fill: "#d4d4d8", fontSize: 10 }}
+              />
+              <Tooltip
+                content={({ active, payload }) => {
+                  if (!active || !payload?.length) {
+                    return null;
+                  }
+
+                  const item = payload[0]?.payload || {};
+
+                  return (
+                    <div className="rounded-xl border border-zinc-800 bg-black p-3 shadow-2xl">
+                      <p className="text-xs font-black text-[#00dcc5]">
+                        {item.action || "Action"}
+                      </p>
+                      <p className="mt-1 text-xs font-bold text-white">
+                        Product: {item.product || "Unknown"}
+                      </p>
+                      <p className="mt-1 text-xs font-bold text-white">
+                        Units: {item.value || 0}
+                      </p>
+                    </div>
+                  );
+                }}
+              />
+              <Bar dataKey="value" name="Units" radius={[0, 8, 8, 0]} maxBarSize={24}>
+                {actionProductRows.map((item, index) => (
+                  <Cell
+                    key={`action-product-${item.name}-${index}`}
+                    fill={COLORS[index % COLORS.length]}
+                  />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartCard>
+
+        <ChartCard
+          title="Replacement Units by Device Name"
+          subtitle="Device Names where Product SKU for replacement contains a value"
+          limit={chartLimits.replacementUnits}
+          onLimitChange={(value) =>
+            updateChartLimit("replacementUnits", value)
+          }
+          height={calculateHorizontalChartHeight(
+            replacementUnitRows.length,
+            {
+              minimum: 440,
+              rowHeight: 42,
+              extra: 100,
+              maximum: 1800,
+            },
+          )}
+        >
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={replacementUnitRows}
+              layout="vertical"
+              margin={{ top: 10, right: 35, left: 35, bottom: 20 }}
+            >
+              <CartesianGrid stroke="#18181b" strokeDasharray="4 4" />
+              <XAxis
+                type="number"
+                allowDecimals={false}
+                tick={{ fill: "#a1a1aa", fontSize: 11 }}
+              />
+              <YAxis
+                type="category"
+                dataKey="name"
+                width={210}
+                interval={0}
+                tick={{ fill: "#d4d4d8", fontSize: 11 }}
+              />
+              <Tooltip content={<DarkTooltip valueLabel="Replacement Units" />} />
+              <Bar dataKey="value" name="Replacement Units" radius={[0, 8, 8, 0]} maxBarSize={26}>
+                {replacementUnitRows.map((item, index) => (
+                  <Cell
+                    key={`replacement-device-${item.name}-${index}`}
+                    fill={COLORS[index % COLORS.length]}
+                  />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartCard>
+
+     
+
+        <ChartCard
+          title="Stock Received vs Stock Sent"
+          subtitle="D/B/A/R received stock comes from Stock Type; sent stock comes from the replacement SKU suffix"
+          height={420}
+        >
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={analytics.stockMovementSummary || []}
+              margin={{ top: 20, right: 25, left: 5, bottom: 35 }}
+            >
+              <CartesianGrid stroke="#18181b" strokeDasharray="4 4" />
+              <XAxis
+                dataKey="name"
+                angle={-18}
+                textAnchor="end"
+                height={75}
+                interval={0}
+                tick={{ fill: "#a1a1aa", fontSize: 10 }}
+              />
+              <YAxis
+                allowDecimals={false}
+                tick={{ fill: "#a1a1aa", fontSize: 11 }}
+              />
+              <Tooltip content={<DarkTooltip valueLabel="Units" />} />
+              <Bar dataKey="value" name="Units" radius={[8, 8, 0, 0]}>
+                {(analytics.stockMovementSummary || []).map((item, index) => (
+                  <Cell
+                    key={`stock-movement-${item.name}-${index}`}
+                    fill={COLORS[index % COLORS.length]}
+                  />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartCard>
+      </section>
+
+      <ChartCard
+        title="Stock Sent by Device Name"
+        subtitle="R Stock and B Stock classification from Product SKU for replacement"
+        limit={chartLimits.sentStockDevice}
+        onLimitChange={(value) =>
+          updateChartLimit("sentStockDevice", value)
+        }
+        height={calculateHorizontalChartHeight(
+          sentStockDeviceRows.length,
+          {
+            minimum: 460,
+            rowHeight: 46,
+            extra: 110,
+            maximum: 2000,
+          },
+        )}
+      >
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart
+            data={sentStockDeviceRows}
+            layout="vertical"
+            margin={{ top: 15, right: 35, left: 40, bottom: 20 }}
+          >
+            <CartesianGrid stroke="#18181b" strokeDasharray="4 4" />
+            <XAxis
+              type="number"
+              allowDecimals={false}
+              tick={{ fill: "#a1a1aa", fontSize: 11 }}
+            />
+            <YAxis
+              type="category"
+              dataKey="name"
+              width={220}
+              interval={0}
+              tick={{ fill: "#d4d4d8", fontSize: 11 }}
+            />
+            <Tooltip content={<DarkTooltip valueLabel="Units" />} />
+            <Legend
+              wrapperStyle={{ color: "#ffffff", fontSize: "11px" }}
+            />
+            <Bar
+              dataKey="RStock"
+              name="R Stock"
+              stackId="sent-stock"
+              fill="#00dcc5"
+              maxBarSize={28}
+            />
+            <Bar
+              dataKey="BStock"
+              name="B Stock"
+              stackId="sent-stock"
+              fill="#38bdf8"
+              maxBarSize={28}
+            />
+            <Bar
+              dataKey="OtherStock"
+              name="Other Stock"
+              stackId="sent-stock"
+              fill="#71717a"
+              radius={[0, 8, 8, 0]}
+              maxBarSize={28}
+            />
+          </BarChart>
         </ResponsiveContainer>
       </ChartCard>
 

@@ -1,4 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
 import {
   Bar,
   BarChart,
@@ -11,41 +16,104 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+
 import * as XLSX from "xlsx";
 
 import ChartCard from "../../../components/ChartCard";
 import MetricCard from "../../../components/MetricCard";
 import ReportHeader from "../../../components/ReportHeader";
 import ReportPdfLoader from "../../../components/ReportPdfLoader";
-import { exportDashboardPdf, waitForPdfUiPaint } from "../../../utils/dashboardPdfExport";
-import RushRmaFilters, { initialRushRmaFilters } from "./RushRmaFilters";
+
+import {
+  exportDashboardPdf,
+  waitForPdfUiPaint,
+} from "../../../utils/dashboardPdfExport";
+
+import RushRmaFilters, {
+  initialRushRmaFilters,
+} from "./RushRmaFilters";
+
 import {
   fetchGlobalRmaReport,
   syncGlobalRma,
 } from "../../../services/rmaApi";
 
 const tabs = [
-  { key: "summary", label: "Summary" },
-  { key: "US RMA", label: "US RMA" },
-  { key: "EMEA RMA", label: "EMEA RMA" },
+  {
+    key: "summary",
+    label: "Summary",
+  },
+  {
+    key: "US RMA",
+    label: "US RMA",
+  },
+  {
+    key: "EMEA RMA",
+    label: "EMEA RMA",
+  },
 ];
 
 const columns = [
-  { key: "region", label: "Region" },
-  { key: "month", label: "Month" },
-  { key: "product", label: "Product" },
-  { key: "description", label: "Description" },
-  { key: "actualRmaReplacement", label: "Actual RMA Replacement" },
-  { key: "dStockUnitsReceived", label: "D Stock Units Received" },
-  { key: "aStockSentOut", label: "A-Stock Sent Out" },
-  { key: "rmaUnitsSentOut", label: "RMA Units Sent Out" },
-  { key: "bStockSentOut", label: "B-Stock Sent Out" },
-  { key: "dStock", label: "D - Stock" },
-  { key: "bStock", label: "B - Stock" },
-  { key: "aStock", label: "A - Stock" },
-  { key: "pendingToShip", label: "Pending to Ship" },
-  { key: "pendingToReceive", label: "Pending to Receive" },
-  { key: "googleDriveRmaCases", label: "Total Queries" },
+  {
+    key: "region",
+    label: "Region",
+  },
+  {
+    key: "month",
+    label: "Month",
+  },
+  {
+    key: "product",
+    label: "Product",
+  },
+  {
+    key: "description",
+    label: "Description",
+  },
+  {
+    key: "actualRmaReplacement",
+    label: "Actual RMA Replacement",
+  },
+  {
+    key: "dStockUnitsReceived",
+    label: "D Stock Units Received",
+  },
+  {
+    key: "aStockSentOut",
+    label: "A-Stock Sent Out",
+  },
+  {
+    key: "rmaUnitsSentOut",
+    label: "RMA Units Sent Out",
+  },
+  {
+    key: "bStockSentOut",
+    label: "B-Stock Sent Out",
+  },
+  {
+    key: "dStock",
+    label: "D - Stock",
+  },
+  {
+    key: "bStock",
+    label: "B - Stock",
+  },
+  {
+    key: "aStock",
+    label: "A - Stock",
+  },
+  {
+    key: "pendingToShip",
+    label: "Pending to Ship",
+  },
+  {
+    key: "pendingToReceive",
+    label: "Pending to Receive",
+  },
+  {
+    key: "googleDriveRmaCases",
+    label: "Total Queries",
+  },
 ];
 
 const chartColors = [
@@ -61,22 +129,47 @@ const chartColors = [
   "#84cc16",
 ];
 
-function DarkTooltip({ active, payload, label }) {
-  if (!active || !payload?.length) return null;
+function DarkTooltip({
+  active,
+  payload,
+  label,
+}) {
+  if (
+    !active ||
+    !payload?.length
+  ) {
+    return null;
+  }
+
+  const currentItem =
+    payload[0];
+
+  const displayLabel =
+    label ||
+    currentItem?.payload?.name ||
+    currentItem?.name ||
+    "Value";
 
   return (
-    <div
-      className="rounded-xl border border-zinc-700 bg-black px-4 py-3 text-xs shadow-2xl"
-    >
-      <p className="font-black text-white">{label || payload[0]?.name}</p>
+    <div className="rounded-xl border border-zinc-700 bg-black px-4 py-3 text-xs shadow-2xl">
+      <p className="font-black text-white">
+        {displayLabel}
+      </p>
+
       <p className="mt-1 font-bold text-[#00dcc5]">
-        Value: {payload[0]?.value ?? 0}
+        Value:{" "}
+        {Number(
+          currentItem?.value ||
+            0,
+        ).toLocaleString()}
       </p>
     </div>
   );
 }
 
-function RmaTable({ rows }) {
+function RmaTable({
+  rows,
+}) {
   return (
     <section className="dashboard-card overflow-hidden">
       <div className="border-b border-zinc-800 p-5">
@@ -89,7 +182,9 @@ function RmaTable({ rows }) {
         </h2>
 
         <p className="mt-2 text-sm text-zinc-500">
-          Showing {rows.length} RMA rows.
+          Showing{" "}
+          {rows.length.toLocaleString()}{" "}
+          RMA rows.
         </p>
       </div>
 
@@ -97,28 +192,65 @@ function RmaTable({ rows }) {
         <table className="soft-table min-w-[1700px]">
           <thead>
             <tr>
-              {columns.map((column) => (
-                <th key={column.key}>{column.label}</th>
-              ))}
+              {columns.map(
+                (column) => (
+                  <th
+                    key={
+                      column.key
+                    }
+                  >
+                    {
+                      column.label
+                    }
+                  </th>
+                ),
+              )}
             </tr>
           </thead>
 
           <tbody>
             {!rows.length ? (
               <tr>
-                <td colSpan={columns.length} className="py-12 text-center">
-                  No RMA records found.
+                <td
+                  colSpan={
+                    columns.length
+                  }
+                  className="py-12 text-center"
+                >
+                  No RMA records
+                  found.
                 </td>
               </tr>
             ) : null}
 
-            {rows.map((row, index) => (
-              <tr key={`${row.region}-${row.product}-${index}`}>
-                {columns.map((column) => (
-                  <td key={column.key}>{row[column.key] ?? "-"}</td>
-                ))}
-              </tr>
-            ))}
+            {rows.map(
+              (
+                row,
+                index,
+              ) => (
+                <tr
+                  key={`${row.region}-${row.month}-${row.product}-${index}`}
+                >
+                  {columns.map(
+                    (
+                      column,
+                    ) => (
+                      <td
+                        key={
+                          column.key
+                        }
+                      >
+                        {row[
+                          column
+                            .key
+                        ] ??
+                          "-"}
+                      </td>
+                    ),
+                  )}
+                </tr>
+              ),
+            )}
           </tbody>
         </table>
       </div>
@@ -127,401 +259,970 @@ function RmaTable({ rows }) {
 }
 
 export default function RushRmaPage() {
-  const [activeTab, setActiveTab] = useState("summary");
-  const [filters, setFilters] = useState(initialRushRmaFilters);
-  const [report, setReport] = useState(null);
-  const [syncing, setSyncing] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [
+    activeTab,
+    setActiveTab,
+  ] =
+    useState(
+      "summary",
+    );
 
-  const [pdfExporting, setPdfExporting] = useState(false);
-  const [pdfProgress, setPdfProgress] = useState(0);
-  const [pdfMessage, setPdfMessage] = useState("");
+  const [
+    filters,
+    setFilters,
+  ] =
+    useState(
+      initialRushRmaFilters,
+    );
 
-  const filterKey = useMemo(() => JSON.stringify(filters), [filters]);
+  const [
+    report,
+    setReport,
+  ] =
+    useState(
+      null,
+    );
 
-  const effectiveFilters = useMemo(() => {
-    if (activeTab === "summary") return filters;
+  const [
+    syncing,
+    setSyncing,
+  ] =
+    useState(
+      false,
+    );
 
-    return {
-      ...filters,
-      region: activeTab,
-    };
-  }, [filters, activeTab]);
+  const [
+    loading,
+    setLoading,
+  ] =
+    useState(
+      false,
+    );
 
-  const analytics = report?.analytics || {};
-  const rows = report?.rows || [];
-  const options = report?.filters || {};
+  const [
+    error,
+    setError,
+  ] =
+    useState(
+      "",
+    );
+
+  const [
+    pdfExporting,
+    setPdfExporting,
+  ] =
+    useState(
+      false,
+    );
+
+  const [
+    pdfProgress,
+    setPdfProgress,
+  ] =
+    useState(
+      0,
+    );
+
+  const [
+    pdfMessage,
+    setPdfMessage,
+  ] =
+    useState(
+      "",
+    );
+
+  const filterKey =
+    useMemo(
+      () =>
+        JSON.stringify(
+          filters,
+        ),
+      [filters],
+    );
+
+  const effectiveFilters =
+    useMemo(
+      () => {
+        if (
+          activeTab ===
+          "summary"
+        ) {
+          return filters;
+        }
+
+        return {
+          ...filters,
+          region:
+            activeTab,
+        };
+      },
+      [
+        filters,
+        activeTab,
+      ],
+    );
+
+  const analytics =
+    report?.analytics ||
+    {};
+
+  const rows =
+    report?.rows ||
+    [];
+
+  const options =
+    report?.filters ||
+    {};
 
   async function loadReport() {
-    setLoading(true);
-    setError("");
+    setLoading(
+      true,
+    );
+
+    setError(
+      "",
+    );
 
     try {
-      const data = await fetchGlobalRmaReport({
-        ...effectiveFilters,
+      const data =
+        await fetchGlobalRmaReport(
+          {
+            ...effectiveFilters,
 
-        // Send both naming conventions so the request works with either
-        // backend controller/service implementation.
-        fromDate:
-          effectiveFilters.fromDate || "",
-        toDate:
-          effectiveFilters.toDate || "",
-        dateFrom:
-          effectiveFilters.fromDate || "",
-        dateTo:
-          effectiveFilters.toDate || "",
+            fromDate:
+              effectiveFilters.fromDate ||
+              "",
 
-        limit: 5000,
-      });
+            toDate:
+              effectiveFilters.toDate ||
+              "",
 
-      setReport(data);
+            dateFrom:
+              effectiveFilters.fromDate ||
+              "",
+
+            dateTo:
+              effectiveFilters.toDate ||
+              "",
+
+            limit:
+              5000,
+          },
+        );
+
+      setReport(
+        data,
+      );
     } catch (err) {
       setError(
-        err?.response?.data?.message ||
+        err?.response?.data
+          ?.message ||
           err?.message ||
-          "Failed to load Global RMA report."
+          "Failed to load Global RMA report.",
       );
     } finally {
-      setLoading(false);
+      setLoading(
+        false,
+      );
     }
   }
 
   async function handleSync() {
-    setSyncing(true);
-    setError("");
-
-    try {
-      await syncGlobalRma();
-      await loadReport();
-    } catch (err) {
-      setError(
-        err?.response?.data?.message ||
-          err?.message ||
-          "Global RMA sync failed."
-      );
-    } finally {
-      setSyncing(false);
-    }
-  }
-
-  useEffect(() => {
-    loadReport();
-  }, [filterKey, activeTab]);
-
-  function exportExcel() {
-    if (!rows.length) {
-      window.alert("No RMA rows to export.");
+    if (
+      syncing
+    ) {
       return;
     }
 
-    const exportRows = rows.map((row) => {
-      const item = {};
-      columns.forEach((column) => {
-        item[column.label] = row[column.key] ?? "";
-      });
-      return item;
-    });
+    setSyncing(
+      true,
+    );
 
-    const ws = XLSX.utils.json_to_sheet(exportRows);
-    const wb = XLSX.utils.book_new();
+    setError(
+      "",
+    );
 
-    XLSX.utils.book_append_sheet(wb, ws, "Global RMA");
-    XLSX.writeFile(wb, "global-rma-report.xlsx");
+    try {
+      await syncGlobalRma();
+
+      await loadReport();
+    } catch (err) {
+      setError(
+        err?.response?.data
+          ?.message ||
+          err?.message ||
+          "Global RMA sync failed.",
+      );
+    } finally {
+      setSyncing(
+        false,
+      );
+    }
   }
 
-async function exportPdf() {
-  if (pdfExporting) {
-    return;
-  }
-
-  setError("");
-  setPdfExporting(true);
-  setPdfProgress(1);
-  setPdfMessage(
-    "Preparing Rush RMA inventory, movement charts and report table...",
+  useEffect(
+    () => {
+      loadReport();
+    },
+    [
+      filterKey,
+      activeTab,
+    ],
   );
 
-  await waitForPdfUiPaint();
+  function exportExcel() {
+    if (
+      !rows.length
+    ) {
+      window.alert(
+        "No RMA rows to export.",
+      );
 
-  try {
-    await exportDashboardPdf({
-      rootId:
-        "rush-rma-pdf-content",
+      return;
+    }
 
-      title:
-        "RUSH RMA",
+    const exportRows =
+      rows.map(
+        (row) => {
+          const item =
+            {};
 
-      filename:
-        "rush-rma-dashboard",
+          columns.forEach(
+            (
+              column,
+            ) => {
+              item[
+                column.label
+              ] =
+                row[
+                  column.key
+                ] ??
+                "";
+            },
+          );
 
-      onProgress: ({
-        progress,
-        message,
-      }) => {
-        setPdfProgress(
-          Math.min(
-            99,
-            Math.max(
-              1,
-              Number(progress) || 1,
-            ),
-          ),
-        );
+          return item;
+        },
+      );
 
-        setPdfMessage(
-          message,
-        );
-      },
-    });
+    const worksheet =
+      XLSX.utils.json_to_sheet(
+        exportRows,
+      );
 
-    setPdfProgress(100);
-    setPdfMessage(
-      "Rush RMA PDF is ready. Download started.",
+    const workbook =
+      XLSX.utils.book_new();
+
+    XLSX.utils.book_append_sheet(
+      workbook,
+      worksheet,
+      "Global RMA",
     );
 
-    await new Promise(
-      (resolve) => {
-        window.setTimeout(
-          resolve,
-          1400,
-        );
-      },
+    XLSX.writeFile(
+      workbook,
+      "global-rma-report.xlsx",
     );
-  } catch (pdfError) {
-    setError(
-      pdfError?.message ||
-        "Unable to export Rush RMA PDF.",
-    );
-  } finally {
-    setPdfExporting(false);
-    setPdfProgress(0);
-    setPdfMessage("");
   }
-}
+
+  async function exportPdf() {
+    if (
+      pdfExporting
+    ) {
+      return;
+    }
+
+    setError(
+      "",
+    );
+
+    setPdfExporting(
+      true,
+    );
+
+    setPdfProgress(
+      1,
+    );
+
+    setPdfMessage(
+      "Preparing Rush RMA inventory, movement charts and report table...",
+    );
+
+    await waitForPdfUiPaint();
+
+    try {
+      await exportDashboardPdf(
+        {
+          rootId:
+            "rush-rma-pdf-content",
+
+          title:
+            "RUSH RMA",
+
+          filename:
+            "rush-rma-dashboard",
+
+          onProgress: ({
+            progress,
+            message,
+          }) => {
+            setPdfProgress(
+              Math.min(
+                99,
+                Math.max(
+                  1,
+                  Number(
+                    progress,
+                  ) ||
+                    1,
+                ),
+              ),
+            );
+
+            setPdfMessage(
+              message,
+            );
+          },
+        },
+      );
+
+      setPdfProgress(
+        100,
+      );
+
+      setPdfMessage(
+        "Rush RMA PDF is ready. Download started.",
+      );
+
+      await new Promise(
+        (
+          resolve,
+        ) => {
+          window.setTimeout(
+            resolve,
+            1400,
+          );
+        },
+      );
+    } catch (
+      pdfError
+    ) {
+      setError(
+        pdfError?.message ||
+          "Unable to export Rush RMA PDF.",
+      );
+    } finally {
+      setPdfExporting(
+        false,
+      );
+
+      setPdfProgress(
+        0,
+      );
+
+      setPdfMessage(
+        "",
+      );
+    }
+  }
 
   return (
     <>
       <ReportPdfLoader
-        open={pdfExporting}
+        open={
+          pdfExporting
+        }
         reportName="Rush RMA"
-        progress={pdfProgress}
-        message={pdfMessage}
+        progress={
+          pdfProgress
+        }
+        message={
+          pdfMessage
+        }
       />
 
       <div
-      id="rush-rma-pdf-content"
-      className="space-y-6"
-    >
-      <div data-pdf-skip="true">
-        <ReportHeader
-          title="RUSH RMA"
-          syncedAt={report?.syncedAt}
-          onExcel={exportExcel}
-          onPdf={exportPdf}
-          exportingPdf={pdfExporting}
-        />
-      </div>
-
-      {error ? (
-        <div data-html2canvas-ignore="true" className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm font-bold text-red-200">
-          {error}
+        id="rush-rma-pdf-content"
+        className="space-y-6"
+      >
+        <div data-pdf-skip="true">
+          <ReportHeader
+            title="RUSH RMA"
+            syncedAt={
+              report?.syncedAt
+            }
+            onSync={
+              handleSync
+            }
+            syncing={
+              syncing
+            }
+            onExcel={
+              exportExcel
+            }
+            onPdf={
+              exportPdf
+            }
+            exportingPdf={
+              pdfExporting
+            }
+          />
         </div>
-      ) : null}
 
-      <section data-pdf-section="true" data-pdf-keep-together="true" className="dashboard-card p-4">
-        <div className="flex flex-wrap gap-2">
-          {tabs.map((tab) => (
-            <button
-              key={tab.key}
-              type="button"
-              onClick={() => setActiveTab(tab.key)}
-              className={[
-                "rounded-full px-5 py-2 text-sm font-black transition",
-                activeTab === tab.key
-                  ? "bg-[#00dcc5] text-black"
-                  : "border border-zinc-800 bg-black text-zinc-400 hover:border-[#00dcc5] hover:text-white",
-              ].join(" ")}
+        {error ? (
+          <div
+            data-html2canvas-ignore="true"
+            className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm font-bold text-red-200"
+          >
+            {error}
+          </div>
+        ) : null}
+
+        <section
+          data-pdf-section="true"
+          data-pdf-keep-together="true"
+          className="dashboard-card p-4"
+        >
+          <div className="flex flex-wrap gap-2">
+            {tabs.map(
+              (tab) => (
+                <button
+                  key={
+                    tab.key
+                  }
+                  type="button"
+                  onClick={() =>
+                    setActiveTab(
+                      tab.key,
+                    )
+                  }
+                  className={[
+                    "rounded-full px-5 py-2 text-sm font-black transition",
+
+                    activeTab ===
+                    tab.key
+                      ? "bg-[#00dcc5] text-black"
+                      : "border border-zinc-800 bg-black text-zinc-400 hover:border-[#00dcc5] hover:text-white",
+                  ].join(
+                    " ",
+                  )}
+                >
+                  {
+                    tab.label
+                  }
+                </button>
+              ),
+            )}
+          </div>
+        </section>
+
+        <div data-html2canvas-ignore="true">
+          <RushRmaFilters
+            filters={
+              filters
+            }
+            setFilters={
+              setFilters
+            }
+            options={
+              options
+            }
+          />
+        </div>
+
+        <section
+          data-pdf-section="true"
+          data-pdf-keep-together="true"
+          data-pdf-grid="4"
+          className="grid gap-4 md:grid-cols-2 xl:grid-cols-4"
+        >
+          <MetricCard
+            label="Actual RMA Replacement"
+            value={
+              analytics.actualRmaReplacement ||
+              0
+            }
+            hint="Total replacements"
+          />
+
+          <MetricCard
+            label="D Stock Units Received"
+            value={
+              analytics.dStockUnitsReceived ||
+              0
+            }
+            hint="Total D Stock received"
+          />
+
+          <MetricCard
+            label="Total Queries"
+            value={
+              analytics.googleDriveRmaCases ||
+              0
+            }
+            hint="RMA case count"
+          />
+
+          <MetricCard
+            label="Pending to Ship"
+            value={
+              analytics.pendingToShip ||
+              0
+            }
+            hint="Open shipping"
+          />
+
+          <MetricCard
+            label="Pending to Receive"
+            value={
+              analytics.pendingToReceive ||
+              0
+            }
+            hint="Open receiving"
+          />
+        </section>
+
+        <section
+          data-pdf-section="true"
+          data-pdf-keep-together="true"
+          data-pdf-grid="2"
+          className="grid gap-6 xl:grid-cols-2"
+        >
+          <ChartCard title="Month-wise Actual RMA">
+            <ResponsiveContainer
+              width="100%"
+              height="100%"
             >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      </section>
-
-      <div data-html2canvas-ignore="true">
-
-        
-
-              <RushRmaFilters
-          filters={filters}
-          setFilters={setFilters}
-          options={options}
-        />
-
-      </div>
-
-      <section data-pdf-section="true" data-pdf-keep-together="true" data-pdf-grid="4" className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <MetricCard
-          label="Actual RMA Replacement"
-          value={analytics.actualRmaReplacement}
-          hint="Total replacements"
-        />
-
-        <MetricCard
-          label="Total Queries"
-          value={analytics.googleDriveRmaCases}
-          hint="RMA case count"
-        />
-
-        <MetricCard
-          label="Pending to Ship"
-          value={analytics.pendingToShip}
-          hint="Open shipping"
-        />
-
-        <MetricCard
-          label="Pending to Receive"
-          value={analytics.pendingToReceive}
-          hint="Open receiving"
-        />
-      </section>
-
-      <section data-pdf-section="true" data-pdf-keep-together="true" data-pdf-grid="2" className="grid gap-6 xl:grid-cols-2">
-        <ChartCard title="Month-wise Actual RMA">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={analytics.byMonth || []}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#222" />
-              <XAxis dataKey="name" stroke="#777" />
-              <YAxis stroke="#777" />
-              <Tooltip content={<DarkTooltip />} />
-              <Bar dataKey="value">
-                {(analytics.byMonth || []).map((_, index) => (
-                  <Cell
-                    key={index}
-                    fill={chartColors[index % chartColors.length]}
-                  />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
-
-        <ChartCard title="Product-wise Actual RMA">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={(analytics.byProduct || []).slice(0, 25)}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#222" />
-              <XAxis dataKey="name" stroke="#777" />
-              <YAxis stroke="#777" />
-              <Tooltip content={<DarkTooltip />} />
-              <Bar dataKey="value">
-                {(analytics.byProduct || []).slice(0, 25).map((_, index) => (
-                  <Cell
-                    key={index}
-                    fill={chartColors[index % chartColors.length]}
-                  />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
-
-        <ChartCard title="D-Stock Received">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={analytics.stockSummary || []}
-                dataKey="value"
-                nameKey="name"
-                outerRadius={105}
-                label
+              <BarChart
+                data={
+                  analytics.byMonth ||
+                  []
+                }
               >
-                {(analytics.stockSummary || []).map((_, index) => (
-                  <Cell
-                    key={index}
-                    fill={chartColors[index % chartColors.length]}
-                  />
-                ))}
-              </Pie>
-              <Tooltip content={<DarkTooltip />} />
-            </PieChart>
-          </ResponsiveContainer>
-        </ChartCard>
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="#222"
+                />
 
-        <ChartCard title="Sent Out Summary">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={analytics.sentOutSummary || []}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#222" />
-              <XAxis dataKey="name" stroke="#777" />
-              <YAxis stroke="#777" />
-              <Tooltip content={<DarkTooltip />} />
-              <Bar dataKey="value">
-                {(analytics.sentOutSummary || []).map((_, index) => (
-                  <Cell
-                    key={index}
-                    fill={chartColors[index % chartColors.length]}
-                  />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
+                <XAxis
+                  dataKey="name"
+                  stroke="#777"
+                />
 
-        <ChartCard title="Pending Summary">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={analytics.pendingSummary || []}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#222" />
-              <XAxis dataKey="name" stroke="#777" />
-              <YAxis stroke="#777" />
-              <Tooltip content={<DarkTooltip />} />
-              <Bar dataKey="value">
-                {(analytics.pendingSummary || []).map((_, index) => (
-                  <Cell
-                    key={index}
-                    fill={chartColors[index % chartColors.length]}
-                  />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
+                <YAxis
+                  stroke="#777"
+                />
 
-        {activeTab === "summary" ? (
-          <ChartCard title="Region-wise RMA">
-            <ResponsiveContainer width="100%" height="100%">
+                <Tooltip
+                  content={
+                    <DarkTooltip />
+                  }
+                />
+
+                <Bar dataKey="value">
+                  {(
+                    analytics.byMonth ||
+                    []
+                  ).map(
+                    (
+                      _,
+                      index,
+                    ) => (
+                      <Cell
+                        key={
+                          index
+                        }
+                        fill={
+                          chartColors[
+                            index %
+                              chartColors.length
+                          ]
+                        }
+                      />
+                    ),
+                  )}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </ChartCard>
+
+          <ChartCard title="Product-wise Actual RMA">
+            <ResponsiveContainer
+              width="100%"
+              height="100%"
+            >
+              <BarChart
+                data={(
+                  analytics.byProduct ||
+                  []
+                ).slice(
+                  0,
+                  25,
+                )}
+              >
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="#222"
+                />
+
+                <XAxis
+                  dataKey="name"
+                  stroke="#777"
+                />
+
+                <YAxis
+                  stroke="#777"
+                />
+
+                <Tooltip
+                  content={
+                    <DarkTooltip />
+                  }
+                />
+
+                <Bar dataKey="value">
+                  {(
+                    analytics.byProduct ||
+                    []
+                  )
+                    .slice(
+                      0,
+                      25,
+                    )
+                    .map(
+                      (
+                        _,
+                        index,
+                      ) => (
+                        <Cell
+                          key={
+                            index
+                          }
+                          fill={
+                            chartColors[
+                              index %
+                                chartColors.length
+                            ]
+                          }
+                        />
+                      ),
+                    )}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </ChartCard>
+
+          {/* Sent Out Summary: left side */}
+          <ChartCard title="Sent Out Summary">
+            <ResponsiveContainer
+              width="100%"
+              height="100%"
+            >
+              <BarChart
+                data={
+                  analytics.sentOutSummary ||
+                  []
+                }
+              >
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="#222"
+                />
+
+                <XAxis
+                  dataKey="name"
+                  stroke="#777"
+                  interval={
+                    0
+                  }
+                  tick={{
+                    fontSize:
+                      10,
+                  }}
+                />
+
+                <YAxis
+                  stroke="#777"
+                />
+
+                <Tooltip
+                  content={
+                    <DarkTooltip />
+                  }
+                />
+
+                <Bar dataKey="value">
+                  {(
+                    analytics.sentOutSummary ||
+                    []
+                  ).map(
+                    (
+                      _,
+                      index,
+                    ) => (
+                      <Cell
+                        key={
+                          index
+                        }
+                        fill={
+                          chartColors[
+                            index %
+                              chartColors.length
+                          ]
+                        }
+                      />
+                    ),
+                  )}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </ChartCard>
+
+          {/* New D Stock Received: right side */}
+          <ChartCard title="D Stock Received">
+            <ResponsiveContainer
+              width="100%"
+              height="100%"
+            >
+              <BarChart
+                data={
+                  analytics.dStockReceivedSummary ||
+                  []
+                }
+              >
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="#222"
+                />
+
+                <XAxis
+                  dataKey="name"
+                  stroke="#777"
+                />
+
+                <YAxis
+                  stroke="#777"
+                />
+
+                <Tooltip
+                  content={
+                    <DarkTooltip />
+                  }
+                />
+
+                <Bar dataKey="value">
+                  {(
+                    analytics.dStockReceivedSummary ||
+                    []
+                  ).map(
+                    (
+                      _,
+                      index,
+                    ) => (
+                      <Cell
+                        key={
+                          index
+                        }
+                        fill={
+                          chartColors[
+                            index %
+                              chartColors.length
+                          ]
+                        }
+                      />
+                    ),
+                  )}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </ChartCard>
+
+          <ChartCard title="Pending Summary">
+            <ResponsiveContainer
+              width="100%"
+              height="100%"
+            >
+              <BarChart
+                data={
+                  analytics.pendingSummary ||
+                  []
+                }
+              >
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="#222"
+                />
+
+                <XAxis
+                  dataKey="name"
+                  stroke="#777"
+                />
+
+                <YAxis
+                  stroke="#777"
+                />
+
+                <Tooltip
+                  content={
+                    <DarkTooltip />
+                  }
+                />
+
+                <Bar dataKey="value">
+                  {(
+                    analytics.pendingSummary ||
+                    []
+                  ).map(
+                    (
+                      _,
+                      index,
+                    ) => (
+                      <Cell
+                        key={
+                          index
+                        }
+                        fill={
+                          chartColors[
+                            index %
+                              chartColors.length
+                          ]
+                        }
+                      />
+                    ),
+                  )}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </ChartCard>
+
+          {activeTab ===
+          "summary" ? (
+            <ChartCard title="Region-wise RMA">
+              <ResponsiveContainer
+                width="100%"
+                height="100%"
+              >
+                <PieChart>
+                  <Pie
+                    data={
+                      analytics.byRegion ||
+                      []
+                    }
+                    dataKey="value"
+                    nameKey="name"
+                    outerRadius={
+                      105
+                    }
+                    label
+                  >
+                    {(
+                      analytics.byRegion ||
+                      []
+                    ).map(
+                      (
+                        _,
+                        index,
+                      ) => (
+                        <Cell
+                          key={
+                            index
+                          }
+                          fill={
+                            chartColors[
+                              index %
+                                chartColors.length
+                            ]
+                          }
+                        />
+                      ),
+                    )}
+                  </Pie>
+
+                  <Tooltip
+                    content={
+                      <DarkTooltip />
+                    }
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </ChartCard>
+          ) : null}
+
+          {/*
+           * Stock Received Summary is deliberately
+           * rendered last in the charts section.
+           */}
+          <ChartCard title="Stock Received Summary">
+            <ResponsiveContainer
+              width="100%"
+              height="100%"
+            >
               <PieChart>
                 <Pie
-                  data={analytics.byRegion || []}
+                  data={
+                    analytics.stockSummary ||
+                    []
+                  }
                   dataKey="value"
                   nameKey="name"
-                  outerRadius={105}
+                  outerRadius={
+                    105
+                  }
                   label
                 >
-                  {(analytics.byRegion || []).map((_, index) => (
-                    <Cell
-                      key={index}
-                      fill={chartColors[index % chartColors.length]}
-                    />
-                  ))}
+                  {(
+                    analytics.stockSummary ||
+                    []
+                  ).map(
+                    (
+                      _,
+                      index,
+                    ) => (
+                      <Cell
+                        key={
+                          index
+                        }
+                        fill={
+                          chartColors[
+                            index %
+                              chartColors.length
+                          ]
+                        }
+                      />
+                    ),
+                  )}
                 </Pie>
 
-                <Tooltip content={<DarkTooltip />} />
+                <Tooltip
+                  content={
+                    <DarkTooltip />
+                  }
+                />
               </PieChart>
             </ResponsiveContainer>
           </ChartCard>
-        ) : null}
-      </section>
+        </section>
 
-      <div data-pdf-section="true" data-pdf-table="true">
-        <RmaTable rows={rows} />
-      </div>
-
-      {loading ? (
-        <div data-html2canvas-ignore="true" className="fixed bottom-5 right-5 rounded-full border border-[#00dcc5]/30 bg-black px-4 py-2 text-xs font-black text-[#00dcc5]">
-          Loading  RMA...
+        <div
+          data-pdf-section="true"
+          data-pdf-table="true"
+        >
+          <RmaTable
+            rows={
+              rows
+            }
+          />
         </div>
-      ) : null}
-    </div>
-</>
+
+        {loading ? (
+          <div
+            data-html2canvas-ignore="true"
+            className="fixed bottom-5 right-5 rounded-full border border-[#00dcc5]/30 bg-black px-4 py-2 text-xs font-black text-[#00dcc5]"
+          >
+            Loading RMA...
+          </div>
+        ) : null}
+      </div>
+    </>
   );
 }
