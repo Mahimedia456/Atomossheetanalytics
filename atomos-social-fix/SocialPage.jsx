@@ -108,44 +108,27 @@ function DarkTooltip({ active, payload, label }) {
 function PlatformIcon({ platform = "" }) {
   const text = String(platform).toLowerCase();
 
-  const shellClassName =
-    "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border bg-black shadow-[0_0_0_3px_rgba(255,255,255,0.02)]";
-
   if (text.includes("facebook")) {
     return (
-      <span
-        className={`${shellClassName} border-blue-500/70 text-blue-500`}
-        aria-label="Facebook"
-      >
-        <svg
-          viewBox="0 0 24 24"
-          className="h-6 w-6"
-          fill="currentColor"
-          aria-hidden="true"
-        >
-          <path d="M13.8 22v-8.2h2.8l.4-3.2h-3.2V8.5c0-.9.3-1.6 1.7-1.6h1.7V4.1c-.3 0-1.3-.1-2.5-.1-2.5 0-4.2 1.5-4.2 4.3v2.4H7.7v3.2h2.8V22h3.3Z" />
-        </svg>
+      <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-600 text-sm font-black text-white">
+        f
       </span>
     );
   }
 
   if (text.includes("instagram")) {
     return (
-      <span
-        className={`${shellClassName} border-pink-500/70 text-pink-500`}
-        aria-label="Instagram"
-      >
+      <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-pink-500 text-white">
         <svg
           viewBox="0 0 24 24"
-          className="h-6 w-6"
+          className="h-4 w-4"
           fill="none"
           stroke="currentColor"
           strokeWidth="2"
-          aria-hidden="true"
         >
           <rect x="3" y="3" width="18" height="18" rx="5" />
-          <circle cx="12" cy="12" r="4.25" />
-          <circle cx="17.4" cy="6.6" r="1.1" fill="currentColor" stroke="none" />
+          <circle cx="12" cy="12" r="4" />
+          <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
         </svg>
       </span>
     );
@@ -153,28 +136,19 @@ function PlatformIcon({ platform = "" }) {
 
   if (text.includes("reddit")) {
     return (
-      <span
-        className={`${shellClassName} border-orange-500/70 text-orange-500`}
-        aria-label="Reddit"
-      >
+      <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-orange-500 text-white">
         <svg
           viewBox="0 0 24 24"
-          className="h-6 w-6"
+          className="h-4 w-4"
           fill="none"
           stroke="currentColor"
-          strokeWidth="1.9"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
+          strokeWidth="2"
         >
-          <circle cx="12" cy="13" r="6.5" />
-          <circle cx="9.2" cy="12.2" r="1" fill="currentColor" stroke="none" />
-          <circle cx="14.8" cy="12.2" r="1" fill="currentColor" stroke="none" />
-          <path d="M9.2 15.5c1.5 1 4.1 1 5.6 0" />
-          <path d="M13.3 6.7 14.2 3l3.5.8" />
-          <circle cx="18.4" cy="5" r="1.35" />
-          <path d="M5.8 10.2 4.3 9.4" />
-          <path d="m18.2 10.2 1.5-.8" />
+          <circle cx="12" cy="13" r="7" />
+          <circle cx="9" cy="12" r="1" fill="currentColor" />
+          <circle cx="15" cy="12" r="1" fill="currentColor" />
+          <path d="M9 16c1.6 1 4.4 1 6 0" />
+          <path d="M14 6l1-4 4 1" />
         </svg>
       </span>
     );
@@ -182,44 +156,32 @@ function PlatformIcon({ platform = "" }) {
 
   if (text.includes("messenger")) {
     return (
-      <span
-        className={`${shellClassName} border-sky-500/70 text-sky-500`}
-        aria-label="Messenger"
-      >
+      <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-sky-500 text-white">
         <svg
           viewBox="0 0 24 24"
-          className="h-6 w-6"
+          className="h-4 w-4"
           fill="currentColor"
-          aria-hidden="true"
         >
-          <path d="M12 3C6.9 3 3 6.7 3 11.5c0 2.6 1.2 4.9 3.2 6.5V22l3.5-1.9c.7.2 1.5.3 2.3.3 5.1 0 9-3.7 9-8.5S17.1 3 12 3Zm1 11.1-2.3-2.4-4.4 2.4 4.8-5.1 2.3 2.4L17.7 9 13 14.1Z" />
+          <path d="M12 3C6.9 3 3 6.7 3 11.5c0 2.7 1.2 5 3.3 6.6V22l3.4-1.9c.8.2 1.5.3 2.3.3 5.1 0 9-3.7 9-8.5S17.1 3 12 3Zm1 11-2.3-2.4L6.3 14l4.8-5.1 2.3 2.4L17.7 9 13 14Z" />
         </svg>
       </span>
     );
   }
 
   return (
-    <span
-      className={`${shellClassName} border-zinc-700 text-zinc-500`}
-      aria-label="Unknown platform"
-    >
-      <HelpCircle size={22} strokeWidth={1.8} />
+    <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-zinc-700 bg-zinc-900 text-zinc-400">
+      <HelpCircle size={15} />
     </span>
   );
 }
 
 function PlatformValue({ value }) {
   return (
-    <div className="flex min-w-[230px] items-center gap-4 py-1">
+    <div className="flex min-w-[180px] items-center gap-2.5">
       <PlatformIcon platform={value} />
-
-      <div className="min-w-0">
-        <p className="truncate text-sm font-black text-white">
-          {value || "Unknown"}
-        </p>
-
-       
-      </div>
+      <span className="font-bold text-zinc-200">
+        {value || "Unknown"}
+      </span>
     </div>
   );
 }
@@ -274,186 +236,21 @@ function renderCell(row, column) {
   return row[column.key] || "-";
 }
 
-
-function ResponseFilterButton({
-  active,
-  label,
-  count,
-  onClick,
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={[
-        "inline-flex items-center gap-2 rounded-full border px-4 py-2.5 text-xs font-black transition",
-        active
-          ? "border-[#00dcc5] bg-[#00dcc5] text-black"
-          : "border-zinc-800 bg-black text-zinc-400 hover:border-[#00dcc5] hover:text-white",
-      ].join(" ")}
-    >
-      <span>{label}</span>
-
-      <span
-        className={[
-          "rounded-full px-2 py-0.5 text-[10px]",
-          active
-            ? "bg-black/15 text-black"
-            : "bg-zinc-900 text-zinc-500",
-        ].join(" ")}
-      >
-        {count}
-      </span>
-    </button>
-  );
-}
-
 function SocialTable({ rows }) {
-  const [
-    responseFilter,
-    setResponseFilter,
-  ] = useState("All");
-
-  const normalizedRows = useMemo(
-    () =>
-      (Array.isArray(rows) ? rows : []).map(
-        (row) => ({
-          ...row,
-          normalizedCustomerResponse:
-            String(
-              row.customerResponse || "Unknown",
-            )
-              .trim()
-              .toLowerCase(),
-        }),
-      ),
-    [rows],
-  );
-
-  const counts = useMemo(
-    () =>
-      normalizedRows.reduce(
-        (result, row) => {
-          result.All += 1;
-
-          const value =
-            row.normalizedCustomerResponse;
-
-          if (value === "positive") {
-            result.Positive += 1;
-          } else if (value === "negative") {
-            result.Negative += 1;
-          } else if (value === "neutral") {
-            result.Neutral += 1;
-          } else {
-            result.Unknown += 1;
-          }
-
-          return result;
-        },
-        {
-          All: 0,
-          Positive: 0,
-          Neutral: 0,
-          Negative: 0,
-          Unknown: 0,
-        },
-      ),
-    [normalizedRows],
-  );
-
-  const visibleRows = useMemo(() => {
-    if (responseFilter === "All") {
-      return normalizedRows;
-    }
-
-    return normalizedRows.filter(
-      (row) =>
-        row.normalizedCustomerResponse ===
-        responseFilter.toLowerCase(),
-    );
-  }, [
-    normalizedRows,
-    responseFilter,
-  ]);
-
   return (
     <section className="dashboard-card overflow-hidden">
       <div className="border-b border-zinc-800 p-5">
-        <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#00dcc5]">
-              Report Table
-            </p>
+        <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#00dcc5]">
+          Report Table
+        </p>
 
-            <h2 className="mt-2 text-2xl font-black text-white">
-              Social Report Data
-            </h2>
+        <h2 className="mt-2 text-2xl font-black text-white">
+          Social Report Data
+        </h2>
 
-            <p className="mt-2 text-sm text-zinc-500">
-              Showing {visibleRows.length} from{" "}
-              {normalizedRows.length} social records.
-              Latest Post/Query Date appears first.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <ResponseFilterButton
-              label="All"
-              count={counts.All}
-              active={responseFilter === "All"}
-              onClick={() =>
-                setResponseFilter("All")
-              }
-            />
-
-            <ResponseFilterButton
-              label="Positive"
-              count={counts.Positive}
-              active={
-                responseFilter === "Positive"
-              }
-              onClick={() =>
-                setResponseFilter("Positive")
-              }
-            />
-
-            <ResponseFilterButton
-              label="Neutral"
-              count={counts.Neutral}
-              active={
-                responseFilter === "Neutral"
-              }
-              onClick={() =>
-                setResponseFilter("Neutral")
-              }
-            />
-
-            <ResponseFilterButton
-              label="Negative"
-              count={counts.Negative}
-              active={
-                responseFilter === "Negative"
-              }
-              onClick={() =>
-                setResponseFilter("Negative")
-              }
-            />
-
-            {counts.Unknown > 0 ? (
-              <ResponseFilterButton
-                label="Unknown"
-                count={counts.Unknown}
-                active={
-                  responseFilter === "Unknown"
-                }
-                onClick={() =>
-                  setResponseFilter("Unknown")
-                }
-              />
-            ) : null}
-          </div>
-        </div>
+        <p className="mt-2 text-sm text-zinc-500">
+          Showing {rows.length} social records. Latest Post/Query Date appears first.
+        </p>
       </div>
 
       <div className="overflow-x-auto">
@@ -469,32 +266,24 @@ function SocialTable({ rows }) {
           </thead>
 
           <tbody>
-            {!visibleRows.length ? (
+            {!rows.length ? (
               <tr>
                 <td
                   colSpan={columns.length}
                   className="py-12 text-center"
                 >
-                  No matching social records found.
+                  No social records found.
                 </td>
               </tr>
             ) : null}
 
-            {visibleRows.map((row, index) => (
-              <tr
-                key={
-                  row.id ||
-                  `${row.postQueryDate}-${index}`
-                }
-              >
+            {rows.map((row, index) => (
+              <tr key={row.id || `${row.postQueryDate}-${index}`}>
                 {columns.map((column) => (
                   <td
                     key={column.key}
                     className={
-                      [
-                        "postQuery",
-                        "response",
-                      ].includes(column.key)
+                      ["postQuery", "response"].includes(column.key)
                         ? "min-w-[380px] whitespace-normal leading-6"
                         : ""
                     }

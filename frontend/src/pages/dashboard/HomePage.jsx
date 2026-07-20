@@ -40,11 +40,11 @@ const modules = [
     desc: "Global USA and EMEA RMA reporting, products, faults and stock movement analytics.",
     icon: TrendingUp,
   },
-  {
-    title: "Agent Performance",
-    desc: "TSE and agent-wise ticket handling, activity and performance analytics.",
-    icon: Headphones,
-  },
+  // {
+  //   title: "Agent Performance",
+  //   desc: "TSE and agent-wise ticket handling, activity and performance analytics.",
+  //   icon: Headphones,
+  // },
   {
     title: "Rush RMA",
     desc: "Rush RMA reporting and operational analytics for USA and EMEA.",
@@ -280,7 +280,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+      <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-2">
         {modules.map((item) => {
           const Icon = item.icon;
 

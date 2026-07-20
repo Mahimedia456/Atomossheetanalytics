@@ -455,7 +455,6 @@ export default function AppLayout({
            * loadReport() effect fetches the fresh backend cache.
            */
           <Outlet
-            // key={`${location.pathname}-${syncVersion}`}
           />
         )}
       </main>
