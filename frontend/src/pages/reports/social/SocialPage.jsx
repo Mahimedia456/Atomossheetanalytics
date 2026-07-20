@@ -336,7 +336,7 @@ export default function SocialPage() {
       </section>
 
       <section data-pdf-section="true" data-pdf-keep-together="true">
-        <ChartCard title="Date-wise Social Queries" showLimit={false}>
+        {/* <ChartCard title="Date-wise Social Queries" showLimit={false}>
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={analytics.byDate || []}>
               <CartesianGrid strokeDasharray="3 3" stroke="#222" />
@@ -352,7 +352,7 @@ export default function SocialPage() {
               />
             </LineChart>
           </ResponsiveContainer>
-        </ChartCard>
+        </ChartCard> */}
       </section>
 
       <section data-pdf-section="true" data-pdf-keep-together="true" data-pdf-grid="2" className="grid gap-6 xl:grid-cols-2">

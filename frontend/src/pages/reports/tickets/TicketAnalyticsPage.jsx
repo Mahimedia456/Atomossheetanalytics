@@ -409,7 +409,7 @@ export default function TicketAnalyticsPage() {
           </ResponsiveContainer>
         </ChartCard>
 
-        <ChartCard
+        {/* <ChartCard
           title="TSE / Agent-wise Tickets"
           limit={chartLimit}
           onLimitChange={setChartLimit}
@@ -427,7 +427,7 @@ export default function TicketAnalyticsPage() {
               </Bar>
             </BarChart>
           </ResponsiveContainer>
-        </ChartCard>
+        </ChartCard> */}
       </section>
 
       <div data-pdf-section="true" data-pdf-table="true">

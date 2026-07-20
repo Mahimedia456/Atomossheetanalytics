@@ -463,7 +463,7 @@ export default function SatisfactionPage() {
       </section>
 
       <section data-pdf-section="true" data-pdf-keep-together="true">
-        <ChartCard title="Date-wise Satisfaction">
+        {/* <ChartCard title="Date-wise Satisfaction">
           <ResponsiveContainer
             width="100%"
             height="100%"
@@ -506,7 +506,7 @@ export default function SatisfactionPage() {
               />
             </LineChart>
           </ResponsiveContainer>
-        </ChartCard>
+        </ChartCard> */}
       </section>
 
       <section data-pdf-section="true" data-pdf-keep-together="true" data-pdf-grid="2" className="grid min-w-0 gap-6 xl:grid-cols-2 [&>*]:min-w-0">

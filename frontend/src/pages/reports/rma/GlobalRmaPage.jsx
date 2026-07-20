@@ -2016,7 +2016,7 @@ export default function GlobalRmaPage() {
         </ResponsiveContainer>
       </ChartCard>
 
-      <ChartCard
+      {/* <ChartCard
         title="Monthly Category RMA Trend"
         subtitle="Return month and year analysis by fault category"
         limit={chartLimits.monthlyCategory}
@@ -2090,7 +2090,7 @@ export default function GlobalRmaPage() {
             )}
           </LineChart>
         </ResponsiveContainer>
-      </ChartCard>
+      </ChartCard> */}
 
       <section
         data-pdf-section="true"

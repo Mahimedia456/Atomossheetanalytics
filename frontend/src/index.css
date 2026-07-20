@@ -128,7 +128,7 @@ html[data-theme="light"] [data-pdf-branding="true"] { background: #000 !importan
 #atomos-pdf-export-stage .text-zinc-300 { color: #e4e4e7 !important; }
 #atomos-pdf-export-stage .text-zinc-400,
 #atomos-pdf-export-stage .text-zinc-500,
-#atomos-pdf-export-stage .text-zinc-600 { color: #8b8b94 !important; }
+#atomos-pdf-export-stage .text-zinc-600 { color: #ffffff !important; }
 #atomos-pdf-export-stage .bg-black,
 #atomos-pdf-export-stage .bg-zinc-950 { background: #000 !important; }
 #atomos-pdf-export-stage .soft-table,
@@ -188,4 +188,14 @@ html[data-theme="light"] [data-pdf-branding="true"] { background: #000 !importan
   display: grid !important;
   grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
   gap: 12px !important;
+}
+
+.text-zinc-500 {
+    --tw-text-opacity: 1;
+    color: rgb(255 255 255) !important;
+}
+
+.text-zinc-600 {
+    --tw-text-opacity: 1;
+    color: rgb(255 255 255) !important;
 }
