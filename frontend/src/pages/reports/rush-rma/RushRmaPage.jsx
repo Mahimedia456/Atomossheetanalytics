@@ -734,7 +734,7 @@ export default function RushRmaPage() {
           data-pdf-section="true"
           data-pdf-keep-together="true"
           data-pdf-grid="4"
-          className="grid gap-4 md:grid-cols-2 xl:grid-cols-4"
+          className="grid gap-4 md:grid-cols-1 xl:grid-cols-5"
         >
           <MetricCard
             label="Actual RMA Replacement"

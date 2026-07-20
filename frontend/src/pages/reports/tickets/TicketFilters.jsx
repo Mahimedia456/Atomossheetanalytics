@@ -141,12 +141,12 @@ export default function TicketFilters({ filters, setFilters, options = {} }) {
           onChange={(event) => update("toDate", event.target.value)}
         />
 
-        <SelectField
+        {/* <SelectField
           label="TSE / Agent"
           value={filters.tse}
           onChange={(event) => update("tse", event.target.value)}
           options={options.tses || []}
-        />
+        /> */}
 
         <SelectField
           label="Region"

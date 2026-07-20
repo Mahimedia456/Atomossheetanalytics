@@ -40,7 +40,7 @@ const initialFilters = {
 const columns = [
   { key: "ticketNumber", label: "Ticket Number" },
   { key: "date", label: "Date" },
-  { key: "tse", label: "TSE / Agent" },
+  // { key: "tse", label: "TSE / Agent" },
   { key: "region", label: "Region" },
   { key: "internal", label: "Internal" },
   { key: "subject", label: "Subject" },

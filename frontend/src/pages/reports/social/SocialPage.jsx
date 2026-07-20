@@ -179,7 +179,25 @@ function PlatformIcon({ platform = "" }) {
       </span>
     );
   }
-
+if (
+  text.includes("youtube")
+) {
+  return (
+    <span
+      className={`${shellClassName} border-red-600/70 text-red-600`}
+      aria-label="YouTube"
+    >
+      <svg
+        viewBox="0 0 24 24"
+        className="h-6 w-6"
+        fill="currentColor"
+        aria-hidden="true"
+      >
+        <path d="M23 12s0-3.5-.45-5.18a2.94 2.94 0 0 0-2.07-2.07C18.8 4.3 12 4.3 12 4.3s-6.8 0-8.48.45A2.94 2.94 0 0 0 1.45 6.82C1 8.5 1 12 1 12s0 3.5.45 5.18a2.94 2.94 0 0 0 2.07 2.07c1.68.45 8.48.45 8.48.45s6.8 0 8.48-.45a2.94 2.94 0 0 0 2.07-2.07C23 15.5 23 12 23 12ZM10 15.5v-7l6 3.5-6 3.5Z" />
+      </svg>
+    </span>
+  );
+}
   if (text.includes("messenger")) {
     return (
       <span
@@ -846,40 +864,136 @@ export default function SocialPage() {
             </ResponsiveContainer>
           </ChartCard>
 
-          <div className="xl:col-span-2">
-            <ChartCard title="Customer Response">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={analytics.byCustomerResponse || []}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#222" />
-                  <XAxis dataKey="name" stroke="#777" />
-                  <YAxis stroke="#777" allowDecimals={false} />
-                  <Tooltip content={<DarkTooltip />} />
-                  <Bar dataKey="value" radius={[8, 8, 0, 0]}>
-                    {(analytics.byCustomerResponse || []).map(
-                      (item, index) => {
-                        let fill = chartColors[index % chartColors.length];
+          <ChartCard title="Customer Response">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={analytics.byCustomerResponse || []}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#222" />
+                <XAxis dataKey="name" stroke="#777" />
+                <YAxis stroke="#777" allowDecimals={false} />
+                <Tooltip content={<DarkTooltip />} />
+                <Bar dataKey="value" radius={[8, 8, 0, 0]}>
+                  {(analytics.byCustomerResponse || []).map(
+                    (item, index) => {
+                      let fill =
+                        chartColors[
+                          index %
+                            chartColors.length
+                        ];
 
-                        if (item.name === "Positive") {
-                          fill = "#22c55e";
-                        } else if (item.name === "Negative") {
-                          fill = "#ef4444";
-                        } else if (item.name === "Neutral") {
-                          fill = "#eab308";
-                        }
+                      if (
+                        item.name ===
+                        "Positive"
+                      ) {
+                        fill = "#22c55e";
+                      } else if (
+                        item.name ===
+                        "Negative"
+                      ) {
+                        fill = "#ef4444";
+                      } else if (
+                        item.name ===
+                        "Neutral"
+                      ) {
+                        fill = "#eab308";
+                      }
 
-                        return (
-                          <Cell
-                            key={`customer-response-${item.name}-${index}`}
-                            fill={fill}
-                          />
-                        );
-                      },
-                    )}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </ChartCard>
-          </div>
+                      return (
+                        <Cell
+                          key={`customer-response-${item.name}-${index}`}
+                          fill={fill}
+                        />
+                      );
+                    },
+                  )}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </ChartCard>
+
+          <ChartCard title="Social Platform Breakdown">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={analytics.byPlatform || []}
+                margin={{
+                  top: 10,
+                  right: 20,
+                  left: 0,
+                  bottom: 10,
+                }}
+              >
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="#222"
+                />
+
+                <XAxis
+                  dataKey="name"
+                  stroke="#777"
+                />
+
+                <YAxis
+                  stroke="#777"
+                  allowDecimals={false}
+                />
+
+                <Tooltip
+                  content={<DarkTooltip />}
+                />
+
+                <Bar
+                  dataKey="value"
+                  radius={[8, 8, 0, 0]}
+                >
+                  {(analytics.byPlatform || []).map(
+                    (item, index) => {
+                      const name = String(
+                        item?.name || "",
+                      ).toLowerCase();
+
+                      let fill =
+                        chartColors[
+                          index %
+                            chartColors.length
+                        ];
+
+                      if (
+                        name.includes(
+                          "facebook",
+                        )
+                      ) {
+                        fill = "#1877f2";
+                      } else if (
+                        name.includes(
+                          "instagram",
+                        )
+                      ) {
+                        fill = "#e1306c";
+                      } else if (
+                        name.includes(
+                          "reddit",
+                        )
+                      ) {
+                        fill = "#ff4500";
+                      } else if (
+                        name.includes(
+                          "messenger",
+                        )
+                      ) {
+                        fill = "#38bdf8";
+                      }
+
+                      return (
+                        <Cell
+                          key={`platform-breakdown-${item.name}-${index}`}
+                          fill={fill}
+                        />
+                      );
+                    },
+                  )}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </ChartCard>
         </section>
 
         <div data-pdf-section="true" data-pdf-table="true">

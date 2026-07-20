@@ -1390,7 +1390,7 @@ export default function GlobalRmaPage() {
         />
       </section>
 
-      <section data-pdf-section="true" data-pdf-keep-together="true" data-pdf-grid="2" className="grid min-w-0 items-start gap-6 2xl:grid-cols-2">
+      <section data-pdf-section="true" data-pdf-keep-together="true" data-pdf-grid="2" className="grid min-w-0 items-start gap-6 xl:grid-cols-2">
         <ChartCard
           title="INW / OOW by Region"
           subtitle="Warranty status distribution across Global RMA"
@@ -1623,7 +1623,10 @@ export default function GlobalRmaPage() {
         </div>
       </section>
 
-      <section data-pdf-section="true" data-pdf-keep-together="true" data-pdf-grid="2" className="grid min-w-0 items-start gap-6 2xl:grid-cols-2">
+      <section
+        data-pdf-section="true"
+        className="grid min-w-0 gap-6"
+      >
         <ChartCard
           title="RMA Product Trend — High / Low"
           subtitle={
@@ -2016,87 +2019,11 @@ export default function GlobalRmaPage() {
         </ResponsiveContainer>
       </ChartCard>
 
-      {/* <ChartCard
-        title="Monthly Category RMA Trend"
-        subtitle="Return month and year analysis by fault category"
-        limit={chartLimits.monthlyCategory}
-        onLimitChange={(value) =>
-          updateChartLimit("monthlyCategory", value)
-        }
-        height={470}
-      >
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart
-            data={monthCategoryChart.rows}
-            margin={{
-              top: 20,
-              right: 25,
-              left: 0,
-              bottom: 50,
-            }}
-          >
-            <CartesianGrid
-              stroke="#18181b"
-              strokeDasharray="4 4"
-            />
-
-            <XAxis
-              dataKey="period"
-              angle={-30}
-              textAnchor="end"
-              tick={{
-                fill: "#a1a1aa",
-                fontSize: 10,
-              }}
-            />
-
-            <YAxis
-              allowDecimals={false}
-              tick={{
-                fill: "#a1a1aa",
-                fontSize: 11,
-              }}
-            />
-
-            <Tooltip
-              content={
-                <DarkTooltip valueLabel="RMA" />
-              }
-            />
-
-            <Legend
-              wrapperStyle={{
-                color: "#ffffff",
-                fontSize: "11px",
-              }}
-            />
-
-            {monthCategoryChart.categories.map(
-              (category, index) => (
-                <Line
-                  key={category}
-                  type="monotone"
-                  dataKey={category}
-                  stroke={COLORS[index % COLORS.length]}
-                  strokeWidth={2.5}
-                  dot={{
-                    r: 3,
-                  }}
-                  activeDot={{
-                    r: 5,
-                  }}
-                />
-              ),
-            )}
-          </LineChart>
-        </ResponsiveContainer>
-      </ChartCard> */}
-
+   
       <section
         data-pdf-section="true"
-        data-pdf-keep-together="true"
         data-pdf-grid="2"
-        className="grid min-w-0 items-start gap-6 2xl:grid-cols-2"
+        className="grid min-w-0 items-start gap-6 xl:grid-cols-2"
       >
         <ChartCard
           title="Action and Product Name"
@@ -2225,8 +2152,9 @@ export default function GlobalRmaPage() {
 
      
 
-        <ChartCard
-          title="Stock Received vs Stock Sent"
+        <div className="xl:col-span-2">
+          <ChartCard
+            title="Stock Received vs Stock Sent"
           subtitle="D/B/A/R received stock comes from Stock Type; sent stock comes from the replacement SKU suffix"
           height={420}
         >
@@ -2258,8 +2186,9 @@ export default function GlobalRmaPage() {
                 ))}
               </Bar>
             </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
+            </ResponsiveContainer>
+          </ChartCard>
+        </div>
       </section>
 
       <ChartCard
