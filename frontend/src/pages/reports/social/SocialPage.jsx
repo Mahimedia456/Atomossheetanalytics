@@ -41,16 +41,12 @@ const columns = [
     label: "Social Platform",
   },
   {
-    key: "region",
-    label: "Region",
-  },
-  {
     key: "country",
     label: "Country",
   },
   {
     key: "postQueryDate",
-    label: "Post/Query Date",
+    label: "Date",
   },
   {
     key: "product",
@@ -70,7 +66,7 @@ const columns = [
   },
   {
     key: "customerResponse",
-    label: "Customer Response",
+    label: "Customer Sentiments",
   },
 ];
 
@@ -86,6 +82,59 @@ const chartColors = [
   "#f43f5e",
   "#84cc16",
 ];
+
+function applyChartLimit(
+  data = [],
+  limit = "10",
+) {
+  const rows = Array.isArray(data)
+    ? [...data]
+    : [];
+
+  const sortedRows = rows.sort(
+    (a, b) =>
+      Number(b?.value || 0) -
+      Number(a?.value || 0),
+  );
+
+  if (limit === "all") {
+    return sortedRows;
+  }
+
+  const parsedLimit = Number(limit);
+
+  if (
+    !Number.isFinite(parsedLimit) ||
+    parsedLimit <= 0
+  ) {
+    return sortedRows;
+  }
+
+  return sortedRows.slice(
+    0,
+    parsedLimit,
+  );
+}
+
+function getHorizontalChartHeight(
+  rowCount,
+  {
+    minimum = 340,
+    rowHeight = 42,
+    extra = 70,
+    maximum = 2200,
+  } = {},
+) {
+  return Math.min(
+    maximum,
+    Math.max(
+      minimum,
+      Number(rowCount || 0) *
+        rowHeight +
+        extra,
+    ),
+  );
+}
 
 function DarkTooltip({ active, payload, label }) {
   if (!active || !payload?.length) {
@@ -289,6 +338,30 @@ function renderCell(row, column) {
     return <CustomerResponseValue value={row[column.key]} />;
   }
 
+  if (column.key === "postQueryDate") {
+    return (
+      <span className="whitespace-nowrap font-bold text-zinc-200">
+        {row[column.key] || "-"}
+      </span>
+    );
+  }
+
+  if (column.key === "postQuery") {
+    return (
+      <span className="block whitespace-normal break-words font-semibold leading-6 text-amber-300">
+        {row[column.key] || "-"}
+      </span>
+    );
+  }
+
+  if (column.key === "response") {
+    return (
+      <span className="block whitespace-normal break-words font-semibold leading-6 text-[#00dcc5]">
+        {row[column.key] || "-"}
+      </span>
+    );
+  }
+
   return row[column.key] || "-";
 }
 
@@ -411,7 +484,7 @@ function SocialTable({ rows }) {
             <p className="mt-2 text-sm text-zinc-500">
               Showing {visibleRows.length} from{" "}
               {normalizedRows.length} social records.
-              Latest Post/Query Date appears first.
+              Latest date appears first.
             </p>
           </div>
 
@@ -475,7 +548,7 @@ function SocialTable({ rows }) {
       </div>
 
       <div className="overflow-x-auto">
-        <table className="soft-table min-w-[1500px]">
+        <table className="soft-table min-w-[1380px]">
           <thead>
             <tr>
               {columns.map((column) => (
@@ -509,12 +582,14 @@ function SocialTable({ rows }) {
                   <td
                     key={column.key}
                     className={
-                      [
-                        "postQuery",
-                        "response",
-                      ].includes(column.key)
-                        ? "min-w-[380px] whitespace-normal leading-6"
-                        : ""
+                      column.key === "postQueryDate"
+                        ? "min-w-[125px] whitespace-nowrap"
+                        : [
+                              "postQuery",
+                              "response",
+                            ].includes(column.key)
+                          ? "min-w-[380px] whitespace-normal leading-6"
+                          : ""
                     }
                   >
                     {renderCell(row, column)}
@@ -540,12 +615,67 @@ export default function SocialPage() {
   const [pdfProgress, setPdfProgress] = useState(0);
   const [pdfMessage, setPdfMessage] = useState("");
 
+  const [
+    chartLimits,
+    setChartLimits,
+  ] = useState({
+    product: "10",
+    category: "10",
+    platform: "10",
+  });
+
   const filterKey = useMemo(
     () => JSON.stringify(filters),
     [filters],
   );
 
   const analytics = report?.analytics || {};
+
+  const productChartRows = useMemo(
+    () =>
+      applyChartLimit(
+        analytics.byProduct || [],
+        chartLimits.product,
+      ),
+    [
+      analytics.byProduct,
+      chartLimits.product,
+    ],
+  );
+
+  const categoryChartRows = useMemo(
+    () =>
+      applyChartLimit(
+        analytics.byCategory || [],
+        chartLimits.category,
+      ),
+    [
+      analytics.byCategory,
+      chartLimits.category,
+    ],
+  );
+
+  const platformChartRows = useMemo(
+    () =>
+      applyChartLimit(
+        analytics.byPlatform || [],
+        chartLimits.platform,
+      ),
+    [
+      analytics.byPlatform,
+      chartLimits.platform,
+    ],
+  );
+
+  function updateChartLimit(
+    chartName,
+    value,
+  ) {
+    setChartLimits((current) => ({
+      ...current,
+      [chartName]: value,
+    }));
+  }
 
   const rows = useMemo(
     () =>
@@ -771,45 +901,163 @@ export default function SocialPage() {
           data-pdf-grid="2"
           className="grid gap-6 xl:grid-cols-2"
         >
-          <ChartCard title="Product-wise Social Queries">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={analytics.byProduct || []}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#222" />
-                <XAxis dataKey="name" stroke="#777" />
-                <YAxis stroke="#777" allowDecimals={false} />
-                <Tooltip content={<DarkTooltip />} />
-                <Bar dataKey="value">
-                  {(analytics.byProduct || []).map((_, index) => (
-                    <Cell
-                      key={`product-${index}`}
-                      fill={chartColors[index % chartColors.length]}
-                    />
-                  ))}
+          <ChartCard
+            title="Product-wise Social Queries"
+            subtitle="Social queries grouped by product"
+            limit={chartLimits.product}
+            onLimitChange={(value) =>
+              updateChartLimit(
+                "product",
+                value,
+              )
+            }
+            height={getHorizontalChartHeight(
+              productChartRows.length,
+            )}
+          >
+            <ResponsiveContainer
+              width="100%"
+              height="100%"
+            >
+              <BarChart
+                data={productChartRows}
+                layout="vertical"
+                margin={{
+                  top: 10,
+                  right: 30,
+                  left: 35,
+                  bottom: 10,
+                }}
+              >
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="#222"
+                />
+
+                <XAxis
+                  type="number"
+                  stroke="#777"
+                  allowDecimals={false}
+                />
+
+                <YAxis
+                  type="category"
+                  dataKey="name"
+                  stroke="#777"
+                  width={190}
+                  interval={0}
+                  tick={{
+                    fill: "#d4d4d8",
+                    fontSize: 11,
+                  }}
+                />
+
+                <Tooltip
+                  content={<DarkTooltip />}
+                />
+
+                <Bar
+                  dataKey="value"
+                  radius={[0, 8, 8, 0]}
+                  maxBarSize={28}
+                >
+                  {productChartRows.map(
+                    (_, index) => (
+                      <Cell
+                        key={`product-${index}`}
+                        fill={
+                          chartColors[
+                            index %
+                              chartColors.length
+                          ]
+                        }
+                      />
+                    ),
+                  )}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
           </ChartCard>
 
-          <ChartCard title="Category-wise Social Queries">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={analytics.byCategory || []}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#222" />
-                <XAxis dataKey="name" stroke="#777" />
-                <YAxis stroke="#777" allowDecimals={false} />
-                <Tooltip content={<DarkTooltip />} />
-                <Bar dataKey="value">
-                  {(analytics.byCategory || []).map((_, index) => (
-                    <Cell
-                      key={`category-${index}`}
-                      fill={chartColors[index % chartColors.length]}
-                    />
-                  ))}
+          <ChartCard
+            title="Category-wise Social Queries"
+            subtitle="Social queries grouped by category"
+            limit={chartLimits.category}
+            onLimitChange={(value) =>
+              updateChartLimit(
+                "category",
+                value,
+              )
+            }
+            height={getHorizontalChartHeight(
+              categoryChartRows.length,
+            )}
+          >
+            <ResponsiveContainer
+              width="100%"
+              height="100%"
+            >
+              <BarChart
+                data={categoryChartRows}
+                layout="vertical"
+                margin={{
+                  top: 10,
+                  right: 30,
+                  left: 35,
+                  bottom: 10,
+                }}
+              >
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="#222"
+                />
+
+                <XAxis
+                  type="number"
+                  stroke="#777"
+                  allowDecimals={false}
+                />
+
+                <YAxis
+                  type="category"
+                  dataKey="name"
+                  stroke="#777"
+                  width={190}
+                  interval={0}
+                  tick={{
+                    fill: "#d4d4d8",
+                    fontSize: 11,
+                  }}
+                />
+
+                <Tooltip
+                  content={<DarkTooltip />}
+                />
+
+                <Bar
+                  dataKey="value"
+                  radius={[0, 8, 8, 0]}
+                  maxBarSize={28}
+                >
+                  {categoryChartRows.map(
+                    (_, index) => (
+                      <Cell
+                        key={`category-${index}`}
+                        fill={
+                          chartColors[
+                            index %
+                              chartColors.length
+                          ]
+                        }
+                      />
+                    ),
+                  )}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
           </ChartCard>
 
-          <ChartCard title="Region-wise Social Queries">
+          <ChartCard title="Region-wise Social Queries" showLimit={false}>
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
@@ -831,40 +1079,89 @@ export default function SocialPage() {
             </ResponsiveContainer>
           </ChartCard>
 
-          <ChartCard title="Social Platform-wise Queries">
-            <ResponsiveContainer width="100%" height="100%">
+          <ChartCard
+            title="Social Platform-wise Queries"
+            subtitle="Queries grouped by social platform"
+            limit={chartLimits.platform}
+            onLimitChange={(value) =>
+              updateChartLimit(
+                "platform",
+                value,
+              )
+            }
+            height={getHorizontalChartHeight(
+              platformChartRows.length,
+              {
+                minimum: 340,
+                rowHeight: 54,
+              },
+            )}
+          >
+            <ResponsiveContainer
+              width="100%"
+              height="100%"
+            >
               <BarChart
-                data={analytics.byPlatform || []}
+                data={platformChartRows}
                 layout="vertical"
                 margin={{
                   top: 10,
-                  right: 25,
-                  left: 30,
+                  right: 30,
+                  left: 25,
                   bottom: 10,
                 }}
               >
-                <CartesianGrid strokeDasharray="3 3" stroke="#222" />
-                <XAxis type="number" stroke="#777" allowDecimals={false} />
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="#222"
+                />
+
+                <XAxis
+                  type="number"
+                  stroke="#777"
+                  allowDecimals={false}
+                />
+
                 <YAxis
                   type="category"
                   dataKey="name"
                   stroke="#777"
-                  width={125}
+                  width={145}
+                  interval={0}
+                  tick={{
+                    fill: "#d4d4d8",
+                    fontSize: 11,
+                  }}
                 />
-                <Tooltip content={<DarkTooltip />} />
-                <Bar dataKey="value" radius={[0, 8, 8, 0]}>
-                  {(analytics.byPlatform || []).map((_, index) => (
-                    <Cell
-                      key={`platform-${index}`}
-                      fill={chartColors[index % chartColors.length]}
-                    />
-                  ))}
+
+                <Tooltip
+                  content={<DarkTooltip />}
+                />
+
+                <Bar
+                  dataKey="value"
+                  radius={[0, 8, 8, 0]}
+                  maxBarSize={30}
+                >
+                  {platformChartRows.map(
+                    (_, index) => (
+                      <Cell
+                        key={`platform-${index}`}
+                        fill={
+                          chartColors[
+                            index %
+                              chartColors.length
+                          ]
+                        }
+                      />
+                    ),
+                  )}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
           </ChartCard>
 
-          <ChartCard title="Customer Response">
+          <ChartCard title="Customer Sentiments" showLimit={false}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={analytics.byCustomerResponse || []}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#222" />
@@ -910,14 +1207,35 @@ export default function SocialPage() {
             </ResponsiveContainer>
           </ChartCard>
 
-          <ChartCard title="Social Platform Breakdown">
-            <ResponsiveContainer width="100%" height="100%">
+          <ChartCard
+            title="Social Platform Breakdown"
+            subtitle="Complete platform count comparison"
+            limit={chartLimits.platform}
+            onLimitChange={(value) =>
+              updateChartLimit(
+                "platform",
+                value,
+              )
+            }
+            height={getHorizontalChartHeight(
+              platformChartRows.length,
+              {
+                minimum: 340,
+                rowHeight: 54,
+              },
+            )}
+          >
+            <ResponsiveContainer
+              width="100%"
+              height="100%"
+            >
               <BarChart
-                data={analytics.byPlatform || []}
+                data={platformChartRows}
+                layout="vertical"
                 margin={{
                   top: 10,
-                  right: 20,
-                  left: 0,
+                  right: 30,
+                  left: 25,
                   bottom: 10,
                 }}
               >
@@ -927,13 +1245,21 @@ export default function SocialPage() {
                 />
 
                 <XAxis
-                  dataKey="name"
+                  type="number"
                   stroke="#777"
+                  allowDecimals={false}
                 />
 
                 <YAxis
+                  type="category"
+                  dataKey="name"
                   stroke="#777"
-                  allowDecimals={false}
+                  width={145}
+                  interval={0}
+                  tick={{
+                    fill: "#d4d4d8",
+                    fontSize: 11,
+                  }}
                 />
 
                 <Tooltip
@@ -942,9 +1268,10 @@ export default function SocialPage() {
 
                 <Bar
                   dataKey="value"
-                  radius={[8, 8, 0, 0]}
+                  radius={[0, 8, 8, 0]}
+                  maxBarSize={30}
                 >
-                  {(analytics.byPlatform || []).map(
+                  {platformChartRows.map(
                     (item, index) => {
                       const name = String(
                         item?.name || "",
@@ -974,6 +1301,12 @@ export default function SocialPage() {
                         )
                       ) {
                         fill = "#ff4500";
+                      } else if (
+                        name.includes(
+                          "youtube",
+                        )
+                      ) {
+                        fill = "#ff0000";
                       } else if (
                         name.includes(
                           "messenger",

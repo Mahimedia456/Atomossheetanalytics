@@ -480,7 +480,7 @@ function AiAnalysisModal({
               <div className="flex flex-wrap items-center gap-3">
                 <span
                   className={[
-                    "inline-flex rounded-full border px-3 py-2 text-xs font-black",
+                    "inline-flex rounded-full border px-2.5 py-2 text-xs font-black",
                     getTeamBadgeClass(
                       analysis.team,
                     ),
@@ -491,7 +491,7 @@ function AiAnalysisModal({
 
                 <span
                   className={[
-                    "inline-flex rounded-full border px-3 py-2 text-xs font-black",
+                    "inline-flex rounded-full border px-2.5 py-2 text-xs font-black",
                     getSentimentClass(
                       analysis.sentiment,
                     ),
@@ -500,7 +500,7 @@ function AiAnalysisModal({
                   {analysis.sentiment}
                 </span>
 
-                <span className="inline-flex rounded-full border border-zinc-800 bg-black px-3 py-2 text-xs font-black text-zinc-400">
+                <span className="inline-flex rounded-full border border-zinc-800 bg-black px-2.5 py-2 text-xs font-black text-zinc-400">
                   Confidence:{" "}
                   {Math.round(
                     Number(
@@ -788,30 +788,38 @@ export default function SatisfactionReportTable({
 
         <div className="min-w-0 max-w-full overflow-hidden">
           <table className="soft-table w-full table-fixed">
+            <colgroup>
+              <col className="w-[8%]" />
+              <col className="w-[10%]" />
+              <col className="w-[10%]" />
+              <col className="w-[50%]" />
+              <col className="w-[10%]" />
+              <col className="w-[12%]" />
+            </colgroup>
             <thead>
               <tr>
-                <th className="w-[11%]">
+                <th className="whitespace-nowrap px-2.5">
                   Ticket ID
                 </th>
 
-                <th className="w-[13%]">
-                  Category
-                </th>
-
-                <th className="w-[11%]">
+                <th className="whitespace-nowrap px-2.5">
                   Date
                 </th>
 
-                <th className="w-[12%]">
+                <th className="whitespace-nowrap px-2.5">
                   Rating
                 </th>
 
-                <th className="w-[38%]">
+                <th className="px-2.5">
                   Comments
                 </th>
 
-                <th className="w-[15%]">
-                  AI Summary
+                <th className="whitespace-nowrap px-2.5">
+                  Category
+                </th>
+
+                <th className="whitespace-nowrap px-2.5">
+                  View Summary
                 </th>
               </tr>
             </thead>
@@ -848,24 +856,18 @@ export default function SatisfactionReportTable({
                         index
                       }`}
                     >
-                      <td className="break-words font-black text-white">
+                      <td className="whitespace-nowrap px-2.5 font-black text-white">
                         {getTicketId(row)}
                       </td>
 
-                      <td className="break-words">
-                        {getCategory(
-                          row,
-                        ) || "-"}
-                      </td>
-
-                      <td className="break-words font-bold text-zinc-300">
+                      <td className="px-2.5 whitespace-nowrap font-bold text-zinc-300">
                         {getDate(row)}
                       </td>
 
-                      <td>
+                      <td className="whitespace-nowrap px-2.5">
                         <span
                           className={[
-                            "inline-flex min-w-[112px] items-center justify-center gap-2 rounded-full border px-3 py-2 text-xs font-black shadow-sm",
+                            "inline-flex min-w-[96px] items-center justify-center gap-2 rounded-full border px-2.5 py-2 text-xs font-black shadow-sm",
 
                             rating ===
                             "Good"
@@ -902,14 +904,27 @@ export default function SatisfactionReportTable({
                         </span>
                       </td>
 
-                      <td>
-                        <span className="line-clamp-4 block whitespace-normal break-words leading-6">
+                      <td className="px-2.5">
+                        <span
+                          className={[
+                            "line-clamp-4 block whitespace-normal break-words font-semibold leading-6",
+                            rating === "Bad"
+                              ? "text-red-400"
+                              : "text-[#00dcc5]",
+                          ].join(" ")}
+                        >
                           {comment ||
                             "-"}
                         </span>
                       </td>
 
-                      <td className="text-center">
+                      <td className="whitespace-nowrap px-2.5">
+                        {getCategory(
+                          row,
+                        ) || "-"}
+                      </td>
+
+                      <td className="px-2.5 text-center">
                         <button
                           type="button"
                           onClick={() =>
@@ -920,7 +935,7 @@ export default function SatisfactionReportTable({
                           disabled={
                             !comment
                           }
-                          className="inline-flex max-w-full items-center justify-center gap-2 whitespace-normal rounded-xl bg-[#00dcc5] px-3 py-2.5 text-center text-xs font-black leading-4 text-black transition hover:shadow-[0_0_18px_rgba(0,220,197,0.35)] disabled:cursor-not-allowed disabled:bg-zinc-900 disabled:text-zinc-600"
+                          className="inline-flex max-w-full items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-[#00dcc5] px-2.5 py-2.5 text-center text-xs font-black leading-4 text-black transition hover:shadow-[0_0_18px_rgba(0,220,197,0.35)] disabled:cursor-not-allowed disabled:bg-zinc-900 disabled:text-zinc-600"
                         >
                           <BrainCircuit
                             size={16}

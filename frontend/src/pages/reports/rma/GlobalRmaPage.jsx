@@ -27,8 +27,6 @@ import {
   Globe2,
   PackageCheck,
   RefreshCcw,
-  ShieldCheck,
-  ShieldX,
   UserRound,
   Wrench,
 } from "lucide-react";
@@ -67,7 +65,6 @@ const COLORS = [
 const initialFilters = {
   search: "",
   region: "",
-  warrantyStatus: "",
   product: "",
   rmaStatus: "",
   actionTaken: "",
@@ -91,19 +88,11 @@ const tableColumns = [
   },
   {
     key: "entryDate",
-    label: "Entry Date",
+    label: "Date",
   },
   {
     key: "processedDate",
-    label: "RO Processed Date",
-  },
-  {
-    key: "returnYear",
-    label: "Year",
-  },
-  {
-    key: "warrantyStatus",
-    label: "INW / OOW",
+    label: "Processed Date",
   },
   {
     key: "productName",
@@ -162,10 +151,6 @@ const tableColumns = [
     label: "RMA Status",
   },
   {
-    key: "customerReturnTrackingNumber",
-    label: "Customer Return Tracking",
-  },
-  {
     key: "trackingNumber",
     label: "Tracking Number",
   },
@@ -204,6 +189,10 @@ const tableColumns = [
   {
     key: "roNotes",
     label: "RO Notes",
+  },
+  {
+    key: "customerReturnTrackingNumber",
+    label: "Customer Return Tracking",
   },
 ];
 function DarkTooltip({
@@ -685,7 +674,6 @@ export default function GlobalRmaPage() {
   const [pdfMessage, setPdfMessage] = useState("");
 
   const [chartLimits, setChartLimits] = useState({
-    warranty: "10",
     rmaStatus: "10",
     actionTaken: "10",
     customerType: "10",
@@ -716,15 +704,55 @@ export default function GlobalRmaPage() {
   const rows = report?.rows || [];
   const options = report?.filters || {};
 
-  const warrantyRows = useMemo(
+  const tableRows = useMemo(
     () =>
-      applyChartLimit(
-        analytics.byWarrantyStatus || [],
-        chartLimits.warranty,
-      ),
+      rows.map((row) => ({
+        ...row,
+        entryDate: String(
+          row.entryDate || "",
+        ).replaceAll("-", "‑"),
+        processedDate: String(
+          row.processedDate || "",
+        ).replaceAll("-", "‑"),
+      })),
+    [rows],
+  );
+
+  const regionRows = useMemo(
+    () => {
+      const source =
+        analytics.byRegion || [];
+
+      const fallback = [
+        {
+          name: "USA",
+          value:
+            analytics.totalUsa || 0,
+        },
+        {
+          name: "EMEA",
+          value:
+            analytics.totalEmea || 0,
+        },
+      ];
+
+      const rowsToUse =
+        source.length
+          ? source
+          : fallback;
+
+      return rowsToUse.filter(
+        (item) =>
+          ["USA", "EMEA"].includes(
+            String(item?.name || "")
+              .toUpperCase(),
+          ),
+      );
+    },
     [
-      analytics.byWarrantyStatus,
-      chartLimits.warranty,
+      analytics.byRegion,
+      analytics.totalUsa,
+      analytics.totalEmea,
     ],
   );
 
@@ -877,11 +905,99 @@ export default function GlobalRmaPage() {
     ],
   );
 
-  const yearCategoryChart = useMemo(
-    () =>
-      buildYearCategoryChart(
-        limitedYearCategoryRows,
-      ),
+  const yearCategoryDonuts = useMemo(
+    () => {
+      const yearMap = new Map();
+
+      limitedYearCategoryRows.forEach(
+        (item) => {
+          const year = String(
+            item?.year || "",
+          );
+
+          const category =
+            String(
+              item?.category ||
+                "Uncategorized",
+            );
+
+          const value = Number(
+            item?.value || 0,
+          );
+
+          if (
+            !year ||
+            year === "Unknown" ||
+            value <= 0
+          ) {
+            return;
+          }
+
+          if (!yearMap.has(year)) {
+            yearMap.set(
+              year,
+              new Map(),
+            );
+          }
+
+          const categories =
+            yearMap.get(year);
+
+          categories.set(
+            category,
+            (categories.get(
+              category,
+            ) || 0) + value,
+          );
+        },
+      );
+
+      return Array.from(
+        yearMap.entries(),
+      )
+        .sort(
+          ([firstYear], [secondYear]) =>
+            Number(firstYear) -
+            Number(secondYear),
+        )
+        .map(
+          ([year, categories]) => {
+            const data = Array.from(
+              categories.entries(),
+            )
+              .map(
+                ([
+                  name,
+                  value,
+                ]) => ({
+                  name,
+                  value,
+                }),
+              )
+              .sort(
+                (a, b) =>
+                  b.value -
+                    a.value ||
+                  a.name.localeCompare(
+                    b.name,
+                  ),
+              );
+
+            return {
+              year,
+              data,
+              total: data.reduce(
+                (sum, item) =>
+                  sum +
+                  Number(
+                    item.value || 0,
+                  ),
+                0,
+              ),
+            };
+          },
+        );
+    },
     [limitedYearCategoryRows],
   );
 
@@ -1240,9 +1356,6 @@ export default function GlobalRmaPage() {
     setPdfMessage("");
   }
 }
-  const sourceCounts =
-    report?.sourceCounts || {};
-
   return (
     <>
       <ReportPdfLoader
@@ -1313,20 +1426,6 @@ export default function GlobalRmaPage() {
         />
 
         <MetricCard
-          title="In Warranty"
-          value={analytics.totalInWarranty || 0}
-          hint="INW records"
-          icon={ShieldCheck}
-        />
-
-        <MetricCard
-          title="Out of Warranty"
-          value={analytics.totalOutOfWarranty || 0}
-          hint="OOW records"
-          icon={ShieldX}
-        />
-
-        <MetricCard
           title="Replaced"
           value={analytics.totalReplaced || 0}
           hint="Replacement actions"
@@ -1392,66 +1491,42 @@ export default function GlobalRmaPage() {
 
       <section data-pdf-section="true" data-pdf-keep-together="true" data-pdf-grid="2" className="grid min-w-0 items-start gap-6 xl:grid-cols-2">
         <ChartCard
-          title="INW / OOW by Region"
-          subtitle="Warranty status distribution across Global RMA"
-          limit={chartLimits.warranty}
-          onLimitChange={(value) =>
-            updateChartLimit("warranty", value)
-          }
+          title="USA / EMEA RMA Distribution"
+          subtitle="Global RMA source comparison by region"
           height={360}
         >
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              data={warrantyRows}
-              margin={{
-                top: 20,
-                right: 20,
-                left: 0,
-                bottom: 20,
-              }}
-            >
-              <CartesianGrid
-                stroke="#18181b"
-                strokeDasharray="4 4"
-              />
-
-              <XAxis
-                dataKey="name"
-                tick={{
-                  fill: "#a1a1aa",
-                  fontSize: 11,
-                }}
-              />
-
-              <YAxis
-                allowDecimals={false}
-                tick={{
-                  fill: "#a1a1aa",
-                  fontSize: 11,
-                }}
-              />
+            <PieChart>
+              <Pie
+                data={regionRows}
+                dataKey="value"
+                nameKey="name"
+                cx="50%"
+                cy="50%"
+                outerRadius={110}
+                label={PieLabel}
+              >
+                {regionRows.map(
+                  (_, index) => (
+                    <Cell
+                      key={`region-${index}`}
+                      fill={
+                        COLORS[
+                          index %
+                            COLORS.length
+                        ]
+                      }
+                    />
+                  ),
+                )}
+              </Pie>
 
               <Tooltip
                 content={
                   <DarkTooltip valueLabel="RMA" />
                 }
               />
-
-              <Bar
-                dataKey="value"
-                name="RMA"
-                radius={[8, 8, 0, 0]}
-              >
-                {warrantyRows.map(
-                  (_, index) => (
-                    <Cell
-                      key={`warranty-${index}`}
-                      fill={COLORS[index % COLORS.length]}
-                    />
-                  ),
-                )}
-              </Bar>
-            </BarChart>
+            </PieChart>
           </ResponsiveContainer>
         </ChartCard>
 
@@ -1948,75 +2023,113 @@ export default function GlobalRmaPage() {
 
       <ChartCard
         title="Year and Category-wise RMA Count"
-        subtitle="Annual RMA count grouped by aligned fault category"
+        subtitle="Each year is shown as a separate category distribution"
         limit={chartLimits.yearCategory}
         onLimitChange={(value) =>
-          updateChartLimit("yearCategory", value)
+          updateChartLimit(
+            "yearCategory",
+            value,
+          )
         }
-        height={450}
+        height={520}
       >
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart
-            data={yearCategoryChart.rows}
-            margin={{
-              top: 20,
-              right: 25,
-              left: 0,
-              bottom: 20,
-            }}
+        {yearCategoryDonuts.length ? (
+          <div
+            className={[
+              "grid h-full gap-5",
+              yearCategoryDonuts.length === 1
+                ? "grid-cols-1"
+                : yearCategoryDonuts.length === 2
+                  ? "md:grid-cols-2"
+                  : "md:grid-cols-2 xl:grid-cols-3",
+            ].join(" ")}
           >
-            <CartesianGrid
-              stroke="#18181b"
-              strokeDasharray="4 4"
-            />
+            {yearCategoryDonuts.map(
+              (yearItem) => (
+                <div
+                  key={yearItem.year}
+                  className="min-h-[420px] min-w-0 rounded-2xl border border-zinc-900 bg-black/30 px-5 py-3"
+                >
+                  <ResponsiveContainer
+                    width="100%"
+                    height="100%"
+                  >
+                    <PieChart>
+                      <Pie
+                        data={
+                          yearItem.data
+                        }
+                        dataKey="value"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={64}
+                        outerRadius={108}
+                        paddingAngle={2}
+                        labelLine={{
+                          stroke: "#71717a",
+                          strokeWidth: 1,
+                        }}
+                        label={PieLabel}
+                      >
+                        {yearItem.data.map(
+                          (
+                            item,
+                            index,
+                          ) => (
+                            <Cell
+                              key={`${yearItem.year}-${item.name}-${index}`}
+                              fill={
+                                COLORS[
+                                  index %
+                                    COLORS.length
+                                ]
+                              }
+                            />
+                          ),
+                        )}
+                      </Pie>
 
-            <XAxis
-              dataKey="year"
-              tick={{
-                fill: "#a1a1aa",
-                fontSize: 11,
-              }}
-            />
+                      <Tooltip
+                        content={
+                          <DarkTooltip valueLabel="RMA" />
+                        }
+                      />
 
-            <YAxis
-              allowDecimals={false}
-              tick={{
-                fill: "#a1a1aa",
-                fontSize: 11,
-              }}
-            />
+                      <text
+                        x="50%"
+                        y="47%"
+                        textAnchor="middle"
+                        dominantBaseline="middle"
+                        fill="#00dcc5"
+                        fontSize="22"
+                        fontWeight="900"
+                      >
+                        {yearItem.year}
+                      </text>
 
-            <Tooltip
-              content={
-                <DarkTooltip valueLabel="RMA" />
-              }
-            />
-
-            <Legend
-              wrapperStyle={{
-                color: "#ffffff",
-                fontSize: "11px",
-              }}
-            />
-
-            {yearCategoryChart.categories.map(
-              (category, index) => (
-                <Bar
-                  key={category}
-                  dataKey={category}
-                  stackId="fault-category"
-                  fill={COLORS[index % COLORS.length]}
-                  radius={
-                    index ===
-                    yearCategoryChart.categories.length - 1
-                      ? [6, 6, 0, 0]
-                      : undefined
-                  }
-                />
+                      <text
+                        x="50%"
+                        y="56%"
+                        textAnchor="middle"
+                        dominantBaseline="middle"
+                        fill="#a1a1aa"
+                        fontSize="11"
+                        fontWeight="800"
+                      >
+                        {yearItem.total} RMA
+                      </text>
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
               ),
             )}
-          </BarChart>
-        </ResponsiveContainer>
+          </div>
+        ) : (
+          <div className="flex h-full items-center justify-center text-sm font-bold text-zinc-500">
+            No year and category data available.
+          </div>
+        )}
       </ChartCard>
 
    
@@ -2311,7 +2424,7 @@ export default function GlobalRmaPage() {
         ) : (
           <DataTable
             columns={tableColumns}
-            rows={rows}
+            rows={tableRows}
           />
         )}
       </section>

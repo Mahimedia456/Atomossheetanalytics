@@ -99,93 +99,201 @@ function normalizeTitle(value) {
 }
 
 function parseDate(value) {
+  if (
+    value === null ||
+    value === undefined ||
+    value === ""
+  ) {
+    return null;
+  }
+
+  if (
+    typeof value === "number" &&
+    Number.isFinite(value)
+  ) {
+    const milliseconds = Math.round(
+      (value - 25569) * 86400 * 1000,
+    );
+
+    const date = new Date(milliseconds);
+
+    return Number.isNaN(date.getTime())
+      ? null
+      : date;
+  }
+
   const raw = cleanText(value);
 
   if (!raw) {
     return null;
   }
 
-  /*
-   * ISO format: YYYY-MM-DD
-   */
+  function createUtcDate(
+    year,
+    monthIndex,
+    day,
+  ) {
+    const date = new Date(
+      Date.UTC(year, monthIndex, day),
+    );
+
+    if (
+      date.getUTCFullYear() !== year ||
+      date.getUTCMonth() !== monthIndex ||
+      date.getUTCDate() !== day
+    ) {
+      return null;
+    }
+
+    return date;
+  }
+
   const isoMatch = raw.match(
-    /^(\d{4})-(\d{1,2})-(\d{1,2})/,
+    /^(\d{4})-(\d{1,2})-(\d{1,2})(?:[T\s]|$)/,
   );
 
   if (isoMatch) {
-    const year = Number(isoMatch[1]);
-    const month = Number(isoMatch[2]);
-    const day = Number(isoMatch[3]);
-
-    const date = new Date(year, month - 1, day);
-
-    if (!Number.isNaN(date.getTime())) {
-      return date;
-    }
+    return createUtcDate(
+      Number(isoMatch[1]),
+      Number(isoMatch[2]) - 1,
+      Number(isoMatch[3]),
+    );
   }
 
   /*
-   * DD/MM/YYYY, MM/DD/YYYY or DD-MM-YYYY.
-   * When the first value is greater than 12, it is
-   * definitely treated as the day.
+   * Current Global RMA sheet format:
+   * DD-MMM-YYYY
+   *
+   * Examples:
+   * 12-Dec-2025
+   * 5-Jan-2026
+   * 29-Jun-2026
    */
-  const numericMatch = raw.match(
-    /^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})/,
+  const namedMonthMatch = raw.match(
+    /^(\d{1,2})[-/\s]([A-Za-z]{3,9})[-/\s](\d{2,4})(?:[T\s]|$)/,
   );
 
-  if (numericMatch) {
-    const first = Number(numericMatch[1]);
-    const second = Number(numericMatch[2]);
+  if (namedMonthMatch) {
+    const monthMap = {
+      jan: 0,
+      january: 0,
+      feb: 1,
+      february: 1,
+      mar: 2,
+      march: 2,
+      apr: 3,
+      april: 3,
+      may: 4,
+      jun: 5,
+      june: 5,
+      jul: 6,
+      july: 6,
+      aug: 7,
+      august: 7,
+      sep: 8,
+      sept: 8,
+      september: 8,
+      oct: 9,
+      october: 9,
+      nov: 10,
+      november: 10,
+      dec: 11,
+      december: 11,
+    };
 
-    let year = Number(numericMatch[3]);
+    const day = Number(
+      namedMonthMatch[1],
+    );
+
+    const monthIndex =
+      monthMap[
+        namedMonthMatch[2].toLowerCase()
+      ];
+
+    let year = Number(
+      namedMonthMatch[3],
+    );
 
     if (year < 100) {
       year += 2000;
     }
 
-    let day = first;
-    let month = second;
+    if (monthIndex !== undefined) {
+      return createUtcDate(
+        year,
+        monthIndex,
+        day,
+      );
+    }
+  }
 
-    /*
-     * Treat ambiguous dates as US format because one
-     * source tab is US RMA.
-     */
-    if (first <= 12 && second <= 12) {
-      month = first;
-      day = second;
+  /*
+   * DD/MM/YYYY or DD-MM-YYYY.
+   * Ambiguous dates are treated as day-first because both
+   * Global RMA source tabs now use the same date format.
+   */
+  const numericMatch = raw.match(
+    /^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})(?:[T\s]|$)/,
+  );
+
+  if (numericMatch) {
+    const day = Number(
+      numericMatch[1],
+    );
+
+    const month = Number(
+      numericMatch[2],
+    );
+
+    let year = Number(
+      numericMatch[3],
+    );
+
+    if (year < 100) {
+      year += 2000;
     }
 
-    const date = new Date(year, month - 1, day);
-
-    if (!Number.isNaN(date.getTime())) {
-      return date;
-    }
+    return createUtcDate(
+      year,
+      month - 1,
+      day,
+    );
   }
 
   const nativeDate = new Date(raw);
 
-  if (!Number.isNaN(nativeDate.getTime())) {
-    return nativeDate;
+  if (
+    !Number.isNaN(nativeDate.getTime())
+  ) {
+    return new Date(
+      Date.UTC(
+        nativeDate.getFullYear(),
+        nativeDate.getMonth(),
+        nativeDate.getDate(),
+      ),
+    );
   }
 
   return null;
 }
 
 function toIsoDate(date) {
-  if (!date || Number.isNaN(date.getTime())) {
+  if (
+    !date ||
+    Number.isNaN(date.getTime())
+  ) {
     return "";
   }
 
-  const year = date.getFullYear();
+  const year = date.getUTCFullYear();
 
   const month = String(
-    date.getMonth() + 1,
+    date.getUTCMonth() + 1,
   ).padStart(2, "0");
 
-  const day = String(date.getDate()).padStart(
-    2,
-    "0",
-  );
+  const day = String(
+    date.getUTCDate(),
+  ).padStart(2, "0");
 
   return `${year}-${month}-${day}`;
 }
@@ -837,11 +945,13 @@ function normalizeGlobalRmaRow(
     parseDate(processedDateRaw);
 
   /*
-   * Return Date reporting prefers RO processed date.
-   * If the RMA is not processed, Entry Date is used.
+   * Global RMA Year, Month and Date filters are based on
+   * Entry Date. RO processed date remains a separate field.
+   *
+   * Processed date is used only when Entry Date is blank.
    */
   const reportingDateObject =
-    processedDateObject || entryDateObject;
+    entryDateObject || processedDateObject;
 
   const productWithFault = cleanText(
     getValue(row, [
@@ -1146,17 +1256,19 @@ function normalizeGlobalRmaRow(
       cleanText(entryDateRaw),
 
     returnYear: reportingDateObject
-      ? String(reportingDateObject.getFullYear())
+      ? String(
+          reportingDateObject.getUTCFullYear(),
+        )
       : "Unknown",
 
     returnMonth: reportingDateObject
       ? MONTH_NAMES[
-          reportingDateObject.getMonth()
+          reportingDateObject.getUTCMonth()
         ]
       : "Unknown",
 
     returnMonthNumber: reportingDateObject
-      ? reportingDateObject.getMonth() + 1
+      ? reportingDateObject.getUTCMonth() + 1
       : 0,
 
     warrantyStatus,

@@ -161,15 +161,6 @@ export default function GlobalRmaFilters({
         />
 
         <SelectFilter
-          label="Warranty"
-          name="warrantyStatus"
-          value={filters.warrantyStatus}
-          options={options.warrantyStatuses || []}
-          onChange={onChange}
-          allLabel="INW and OOW"
-        />
-
-        <SelectFilter
           label="Atomos product"
           name="product"
           value={filters.product}

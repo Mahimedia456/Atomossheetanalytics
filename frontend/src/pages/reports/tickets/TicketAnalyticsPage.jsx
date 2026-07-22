@@ -40,7 +40,6 @@ const initialFilters = {
 const columns = [
   { key: "ticketNumber", label: "Ticket Number" },
   { key: "date", label: "Date" },
-  // { key: "tse", label: "TSE / Agent" },
   { key: "region", label: "Region" },
   { key: "internal", label: "Internal" },
   { key: "subject", label: "Subject" },
@@ -64,6 +63,127 @@ const chartColors = [
   "#06b6d4",
   "#f59e0b",
 ];
+
+function applyChartLimit(
+  data = [],
+  limit = "10",
+) {
+  const preparedRows = Array.isArray(data)
+    ? [...data].sort(
+        (a, b) =>
+          Number(b?.value || 0) -
+          Number(a?.value || 0),
+      )
+    : [];
+
+  if (limit === "all") {
+    return preparedRows;
+  }
+
+  const parsedLimit = Number(limit);
+
+  if (
+    !Number.isFinite(parsedLimit) ||
+    parsedLimit <= 0
+  ) {
+    return preparedRows;
+  }
+
+  return preparedRows.slice(
+    0,
+    parsedLimit,
+  );
+}
+
+function getHorizontalChartHeight(
+  rowCount,
+  {
+    minimum = 360,
+    rowHeight = 44,
+    extra = 90,
+    maximum = 2400,
+  } = {},
+) {
+  return Math.min(
+    maximum,
+    Math.max(
+      minimum,
+      Number(rowCount || 0) *
+        rowHeight +
+        extra,
+    ),
+  );
+}
+
+function getRegionColor(region) {
+  const normalized = String(
+    region || "",
+  )
+    .trim()
+    .toUpperCase();
+
+  if (
+    normalized === "EMEA"
+  ) {
+    return "#00dcc5";
+  }
+
+  if (
+    normalized === "US" ||
+    normalized === "USA" ||
+    normalized === "NA"
+  ) {
+    return "#22c55e";
+  }
+
+  if (
+    normalized === "APAC"
+  ) {
+    return "#38bdf8";
+  }
+
+  if (
+    normalized === "UAE"
+  ) {
+    return "#f59e0b";
+  }
+
+  return "#a855f7";
+}
+
+function RegionBadge({
+  value,
+}) {
+  const normalized = String(
+    value || "Unknown",
+  )
+    .trim()
+    .toUpperCase();
+
+  const className =
+    normalized === "EMEA"
+      ? "border-[#00dcc5]/30 bg-[#00dcc5]/10 text-[#00dcc5]"
+      : normalized === "US" ||
+          normalized === "USA" ||
+          normalized === "NA"
+        ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+        : normalized === "APAC"
+          ? "border-sky-500/30 bg-sky-500/10 text-sky-300"
+          : normalized === "UAE"
+            ? "border-amber-500/30 bg-amber-500/10 text-amber-300"
+            : "border-violet-500/30 bg-violet-500/10 text-violet-300";
+
+  return (
+    <span
+      className={[
+        "inline-flex whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-black",
+        className,
+      ].join(" ")}
+    >
+      {value || "Unknown"}
+    </span>
+  );
+}
 
 function DarkTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
@@ -113,16 +233,28 @@ export default function TicketAnalyticsPage() {
   const [pdfExporting, setPdfExporting] = useState(false);
   const [pdfProgress, setPdfProgress] = useState(0);
   const [pdfMessage, setPdfMessage] = useState("");
-  const [chartLimit, setChartLimit] = useState("10");
+  const [
+    chartLimits,
+    setChartLimits,
+  ] = useState({
+    product: "10",
+    category: "10",
+    region: "10",
+  });
 
   const analytics = report?.analytics || {};
   const rows = report?.rows || [];
   const options = report?.filters || {};
   const filterKey = useMemo(() => JSON.stringify(filters), [filters]);
 
-  function limitChartData(data = []) {
-    if (chartLimit === "all") return data;
-    return data.slice(0, Number(chartLimit));
+  function updateChartLimit(
+    chartName,
+    value,
+  ) {
+    setChartLimits((current) => ({
+      ...current,
+      [chartName]: value,
+    }));
   }
 
   async function loadReport() {
@@ -248,10 +380,40 @@ export default function TicketAnalyticsPage() {
   }
 }
 
-  const productData = limitChartData(analytics.byProduct || []);
-  const categoryData = limitChartData(analytics.byCategory || []);
-  const regionData = limitChartData(analytics.byRegion || []);
-  const tseData = limitChartData(analytics.byTse || []);
+  const productData = applyChartLimit(
+    analytics.byProduct || [],
+    chartLimits.product,
+  );
+
+  const categoryData = applyChartLimit(
+    analytics.byCategory || [],
+    chartLimits.category,
+  );
+
+  const regionData = applyChartLimit(
+    analytics.byRegion || [],
+    chartLimits.region,
+  );
+
+  const tableRows = useMemo(
+    () =>
+      rows.map((row) => ({
+        ...row,
+        date: (
+          <span className="whitespace-nowrap font-bold text-zinc-300">
+            {String(
+              row.date || "-",
+            ).replaceAll("-", "‑")}
+          </span>
+        ),
+        region: (
+          <RegionBadge
+            value={row.region}
+          />
+        ),
+      })),
+    [rows],
+  );
 
   return (
     <>
@@ -348,19 +510,77 @@ export default function TicketAnalyticsPage() {
       <section data-pdf-section="true" data-pdf-keep-together="true" data-pdf-grid="2" className="grid gap-6 xl:grid-cols-2">
         <ChartCard
           title="Product-wise Tickets"
-          limit={chartLimit}
-          onLimitChange={setChartLimit}
+          subtitle="Tickets grouped by product"
+          limit={chartLimits.product}
+          onLimitChange={(value) =>
+            updateChartLimit(
+              "product",
+              value,
+            )
+          }
+          height={getHorizontalChartHeight(
+            productData.length,
+          )}
         >
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={productData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#222" />
-              <XAxis dataKey="name" stroke="#777" />
-              <YAxis stroke="#777" />
-              <Tooltip content={<DarkTooltip />} />
-              <Bar dataKey="value">
-                {productData.map((_, index) => (
-                  <Cell key={index} fill={chartColors[index % chartColors.length]} />
-                ))}
+          <ResponsiveContainer
+            width="100%"
+            height="100%"
+          >
+            <BarChart
+              data={productData}
+              layout="vertical"
+              margin={{
+                top: 10,
+                right: 35,
+                left: 35,
+                bottom: 10,
+              }}
+            >
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke="#222"
+              />
+
+              <XAxis
+                type="number"
+                stroke="#777"
+                allowDecimals={false}
+              />
+
+              <YAxis
+                type="category"
+                dataKey="name"
+                stroke="#777"
+                width={210}
+                interval={0}
+                tick={{
+                  fill: "#d4d4d8",
+                  fontSize: 11,
+                }}
+              />
+
+              <Tooltip
+                content={<DarkTooltip />}
+              />
+
+              <Bar
+                dataKey="value"
+                radius={[0, 8, 8, 0]}
+                maxBarSize={28}
+              >
+                {productData.map(
+                  (_, index) => (
+                    <Cell
+                      key={`product-${index}`}
+                      fill={
+                        chartColors[
+                          index %
+                            chartColors.length
+                        ]
+                      }
+                    />
+                  ),
+                )}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
@@ -368,19 +588,77 @@ export default function TicketAnalyticsPage() {
 
         <ChartCard
           title="Category-wise Tickets"
-          limit={chartLimit}
-          onLimitChange={setChartLimit}
+          subtitle="Tickets grouped by category"
+          limit={chartLimits.category}
+          onLimitChange={(value) =>
+            updateChartLimit(
+              "category",
+              value,
+            )
+          }
+          height={getHorizontalChartHeight(
+            categoryData.length,
+          )}
         >
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={categoryData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#222" />
-              <XAxis dataKey="name" stroke="#777" />
-              <YAxis stroke="#777" />
-              <Tooltip content={<DarkTooltip />} />
-              <Bar dataKey="value">
-                {categoryData.map((_, index) => (
-                  <Cell key={index} fill={chartColors[index % chartColors.length]} />
-                ))}
+          <ResponsiveContainer
+            width="100%"
+            height="100%"
+          >
+            <BarChart
+              data={categoryData}
+              layout="vertical"
+              margin={{
+                top: 10,
+                right: 35,
+                left: 35,
+                bottom: 10,
+              }}
+            >
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke="#222"
+              />
+
+              <XAxis
+                type="number"
+                stroke="#777"
+                allowDecimals={false}
+              />
+
+              <YAxis
+                type="category"
+                dataKey="name"
+                stroke="#777"
+                width={210}
+                interval={0}
+                tick={{
+                  fill: "#d4d4d8",
+                  fontSize: 11,
+                }}
+              />
+
+              <Tooltip
+                content={<DarkTooltip />}
+              />
+
+              <Bar
+                dataKey="value"
+                radius={[0, 8, 8, 0]}
+                maxBarSize={28}
+              >
+                {categoryData.map(
+                  (_, index) => (
+                    <Cell
+                      key={`category-${index}`}
+                      fill={
+                        chartColors[
+                          index %
+                            chartColors.length
+                        ]
+                      }
+                    />
+                  ),
+                )}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
@@ -388,24 +666,86 @@ export default function TicketAnalyticsPage() {
 
         <ChartCard
           title="Region-wise Tickets"
-          limit={chartLimit}
-          onLimitChange={setChartLimit}
+          subtitle="Tickets grouped by region"
+          limit={chartLimits.region}
+          onLimitChange={(value) =>
+            updateChartLimit(
+              "region",
+              value,
+            )
+          }
+          height={getHorizontalChartHeight(
+            regionData.length,
+            {
+              minimum: 360,
+              rowHeight: 58,
+            },
+          )}
         >
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={regionData}
+          <ResponsiveContainer
+            width="100%"
+            height="100%"
+          >
+            <BarChart
+              data={regionData}
+              layout="vertical"
+              margin={{
+                top: 10,
+                right: 40,
+                left: 25,
+                bottom: 10,
+              }}
+            >
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke="#222"
+              />
+
+              <XAxis
+                type="number"
+                stroke="#777"
+                allowDecimals={false}
+              />
+
+              <YAxis
+                type="category"
+                dataKey="name"
+                stroke="#777"
+                width={110}
+                interval={0}
+                tick={{
+                  fill: "#d4d4d8",
+                  fontSize: 11,
+                }}
+              />
+
+              <Tooltip
+                content={<DarkTooltip />}
+              />
+
+              <Bar
                 dataKey="value"
-                nameKey="name"
-                outerRadius={105}
-                label={renderPieLabel}
+                radius={[0, 8, 8, 0]}
+                maxBarSize={34}
+                label={{
+                  position: "right",
+                  fill: "#ffffff",
+                  fontSize: 12,
+                  fontWeight: 800,
+                }}
               >
-                {regionData.map((_, index) => (
-                  <Cell key={index} fill={chartColors[index % chartColors.length]} />
-                ))}
-              </Pie>
-              <Tooltip content={<DarkTooltip />} />
-            </PieChart>
+                {regionData.map(
+                  (item, index) => (
+                    <Cell
+                      key={`region-${item.name}-${index}`}
+                      fill={getRegionColor(
+                        item.name,
+                      )}
+                    />
+                  ),
+                )}
+              </Bar>
+            </BarChart>
           </ResponsiveContainer>
         </ChartCard>
 
@@ -431,7 +771,10 @@ export default function TicketAnalyticsPage() {
       </section>
 
       <div data-pdf-section="true" data-pdf-table="true">
-        <DataTable rows={rows} columns={columns} />
+        <DataTable
+          rows={tableRows}
+          columns={columns}
+        />
       </div>
 
       {loading ? (

@@ -129,6 +129,57 @@ const chartColors = [
   "#84cc16",
 ];
 
+function applyChartLimit(
+  data = [],
+  limit = "10",
+) {
+  const preparedRows = Array.isArray(data)
+    ? [...data].sort(
+        (a, b) =>
+          Number(b?.value || 0) -
+          Number(a?.value || 0),
+      )
+    : [];
+
+  if (limit === "all") {
+    return preparedRows;
+  }
+
+  const parsedLimit = Number(limit);
+
+  if (
+    !Number.isFinite(parsedLimit) ||
+    parsedLimit <= 0
+  ) {
+    return preparedRows;
+  }
+
+  return preparedRows.slice(
+    0,
+    parsedLimit,
+  );
+}
+
+function getHorizontalChartHeight(
+  rowCount,
+  {
+    minimum = 360,
+    rowHeight = 46,
+    extra = 90,
+    maximum = 2400,
+  } = {},
+) {
+  return Math.min(
+    maximum,
+    Math.max(
+      minimum,
+      Number(rowCount || 0) *
+        rowHeight +
+        extra,
+    ),
+  );
+}
+
 function DarkTooltip({
   active,
   payload,
@@ -331,6 +382,13 @@ export default function RushRmaPage() {
       "",
     );
 
+  const [
+    chartLimits,
+    setChartLimits,
+  ] = useState({
+    product: "10",
+  });
+
   const filterKey =
     useMemo(
       () =>
@@ -373,6 +431,28 @@ export default function RushRmaPage() {
   const options =
     report?.filters ||
     {};
+
+  const productChartRows = useMemo(
+    () =>
+      applyChartLimit(
+        analytics.byProduct || [],
+        chartLimits.product,
+      ),
+    [
+      analytics.byProduct,
+      chartLimits.product,
+    ],
+  );
+
+  function updateChartLimit(
+    chartName,
+    value,
+  ) {
+    setChartLimits((current) => ({
+      ...current,
+      [chartName]: value,
+    }));
+  }
 
   async function loadReport() {
     setLoading(
@@ -788,7 +868,7 @@ export default function RushRmaPage() {
           data-pdf-grid="2"
           className="grid gap-6 xl:grid-cols-2"
         >
-          <ChartCard title="Month-wise Actual RMA">
+          <ChartCard title="Month-wise Actual RMA" showLimit={false}>
             <ResponsiveContainer
               width="100%"
               height="100%"
@@ -846,19 +926,33 @@ export default function RushRmaPage() {
             </ResponsiveContainer>
           </ChartCard>
 
-          <ChartCard title="Product-wise Actual RMA">
+          <ChartCard
+            title="Product-wise Actual RMA"
+            subtitle="Actual RMA replacements grouped by product"
+            limit={chartLimits.product}
+            onLimitChange={(value) =>
+              updateChartLimit(
+                "product",
+                value,
+              )
+            }
+            height={getHorizontalChartHeight(
+              productChartRows.length,
+            )}
+          >
             <ResponsiveContainer
               width="100%"
               height="100%"
             >
               <BarChart
-                data={(
-                  analytics.byProduct ||
-                  []
-                ).slice(
-                  0,
-                  25,
-                )}
+                data={productChartRows}
+                layout="vertical"
+                margin={{
+                  top: 10,
+                  right: 35,
+                  left: 35,
+                  bottom: 10,
+                }}
               >
                 <CartesianGrid
                   strokeDasharray="3 3"
@@ -866,12 +960,21 @@ export default function RushRmaPage() {
                 />
 
                 <XAxis
-                  dataKey="name"
+                  type="number"
                   stroke="#777"
+                  allowDecimals={false}
                 />
 
                 <YAxis
+                  type="category"
+                  dataKey="name"
                   stroke="#777"
+                  width={210}
+                  interval={0}
+                  tick={{
+                    fill: "#d4d4d8",
+                    fontSize: 11,
+                  }}
                 />
 
                 <Tooltip
@@ -880,40 +983,34 @@ export default function RushRmaPage() {
                   }
                 />
 
-                <Bar dataKey="value">
-                  {(
-                    analytics.byProduct ||
-                    []
-                  )
-                    .slice(
-                      0,
-                      25,
-                    )
-                    .map(
-                      (
-                        _,
-                        index,
-                      ) => (
-                        <Cell
-                          key={
-                            index
-                          }
-                          fill={
-                            chartColors[
-                              index %
-                                chartColors.length
-                            ]
-                          }
-                        />
-                      ),
-                    )}
+                <Bar
+                  dataKey="value"
+                  radius={[0, 8, 8, 0]}
+                  maxBarSize={28}
+                >
+                  {productChartRows.map(
+                    (
+                      _,
+                      index,
+                    ) => (
+                      <Cell
+                        key={`product-${index}`}
+                        fill={
+                          chartColors[
+                            index %
+                              chartColors.length
+                          ]
+                        }
+                      />
+                    ),
+                  )}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
           </ChartCard>
 
           {/* Sent Out Summary: left side */}
-          <ChartCard title="Sent Out Summary">
+          <ChartCard title="Sent Out Summary" showLimit={false}>
             <ResponsiveContainer
               width="100%"
               height="100%"
@@ -978,126 +1075,25 @@ export default function RushRmaPage() {
             </ResponsiveContainer>
           </ChartCard>
 
-          {/* New D Stock Received: right side */}
-          <ChartCard title="D Stock Received">
-            <ResponsiveContainer
-              width="100%"
-              height="100%"
-            >
-              <BarChart
-                data={
-                  analytics.dStockReceivedSummary ||
-                  []
-                }
-              >
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="#222"
-                />
+          {/*
+           * D Stock Received chart temporarily disabled.
+           *
+           * <ChartCard title="D Stock Received">
+           *   Chart intentionally commented out.
+           * </ChartCard>
+           */}
 
-                <XAxis
-                  dataKey="name"
-                  stroke="#777"
-                />
-
-                <YAxis
-                  stroke="#777"
-                />
-
-                <Tooltip
-                  content={
-                    <DarkTooltip />
-                  }
-                />
-
-                <Bar dataKey="value">
-                  {(
-                    analytics.dStockReceivedSummary ||
-                    []
-                  ).map(
-                    (
-                      _,
-                      index,
-                    ) => (
-                      <Cell
-                        key={
-                          index
-                        }
-                        fill={
-                          chartColors[
-                            index %
-                              chartColors.length
-                          ]
-                        }
-                      />
-                    ),
-                  )}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </ChartCard>
-
-          <ChartCard title="Pending Summary">
-            <ResponsiveContainer
-              width="100%"
-              height="100%"
-            >
-              <BarChart
-                data={
-                  analytics.pendingSummary ||
-                  []
-                }
-              >
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="#222"
-                />
-
-                <XAxis
-                  dataKey="name"
-                  stroke="#777"
-                />
-
-                <YAxis
-                  stroke="#777"
-                />
-
-                <Tooltip
-                  content={
-                    <DarkTooltip />
-                  }
-                />
-
-                <Bar dataKey="value">
-                  {(
-                    analytics.pendingSummary ||
-                    []
-                  ).map(
-                    (
-                      _,
-                      index,
-                    ) => (
-                      <Cell
-                        key={
-                          index
-                        }
-                        fill={
-                          chartColors[
-                            index %
-                              chartColors.length
-                          ]
-                        }
-                      />
-                    ),
-                  )}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </ChartCard>
+          {/*
+           * Pending Summary chart temporarily disabled.
+           *
+           * <ChartCard title="Pending Summary">
+           *   Chart intentionally commented out.
+           * </ChartCard>
+           */}
 
           {activeTab ===
           "summary" ? (
-            <ChartCard title="Region-wise RMA">
+            <ChartCard title="Region-wise RMA" showLimit={false}>
               <ResponsiveContainer
                 width="100%"
                 height="100%"
@@ -1152,7 +1148,7 @@ export default function RushRmaPage() {
            * Stock Received Summary is deliberately
            * rendered last in the charts section.
            */}
-          <ChartCard title="Stock Received Summary">
+          <ChartCard title="Stock Received Summary" showLimit={false}>
             <ResponsiveContainer
               width="100%"
               height="100%"
