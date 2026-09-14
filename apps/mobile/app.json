@@ -1,0 +1,51 @@
+{
+  "expo": {
+    "name": "Atomos Reporting",
+    "slug": "atomos-reporting-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "atomosreporting",
+    "userInterfaceStyle": "dark",
+    "icon": "./assets/brand/atomos-icon.png",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.mahimediasolutions.atomosreporting",
+      "buildNumber": "1",
+      "infoPlist": {
+        "UIStatusBarStyle": "UIStatusBarStyleLightContent",
+        "UIViewControllerBasedStatusBarAppearance": false
+      }
+    },
+    "android": {
+      "package": "com.mahimediasolutions.atomosreporting",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/brand/atomos-icon.png",
+        "backgroundColor": "#000000"
+      },
+      "softwareKeyboardLayoutMode": "resize"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/brand/atomos-icon.png",
+          "imageWidth": 180,
+          "resizeMode": "contain",
+          "backgroundColor": "#000000"
+        }
+      ]
+    ],
+    "updates": {
+      "fallbackToCacheTimeout": 0
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

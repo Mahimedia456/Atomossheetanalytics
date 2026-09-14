@@ -1,0 +1,44 @@
+{
+  "name": "atomos-mobile",
+  "version": "0.12.1",
+  "private": true,
+  "main": "expo-router/entry",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "doctor": "npx expo-doctor@latest",
+    "typecheck": "tsc --noEmit",
+    "qa": "npm run typecheck && npm run doctor",
+    "export:android": "expo export --platform android",
+    "export:ios": "expo export --platform ios",
+    "repair": "npm run clean:install",
+    "clean:install": "node ./tools/clean-install.cjs"
+  },
+  "dependencies": {
+    "@expo/vector-icons": "latest",
+    "axios": "latest",
+    "expo": "~57.0.22",
+    "expo-constants": "latest",
+    "expo-font": "latest",
+    "expo-linking": "latest",
+    "expo-router": "latest",
+    "expo-secure-store": "latest",
+    "expo-splash-screen": "latest",
+    "expo-status-bar": "latest",
+    "react": "19.2.3",
+    "react-native": "0.86.3",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-screens": "~4.26.0",
+    "react-native-svg": "15.15.4",
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "expo-network": "latest",
+    "react-dom": "19.2.3",
+    "react-native-worklets": "0.10.1"
+  },
+  "devDependencies": {
+    "@types/react": "~19.2.4",
+    "typescript": "~6.0.3"
+  }
+}
