@@ -22,183 +22,40 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import HorizontalBarChart from "@/components/HorizontalBarChart";
 import MetricCard from "@/components/MetricCard";
 import {
-  fetchSocialReport,
-  SocialReport,
-  SocialRow,
-  syncSocial,
-} from "@/services/socialApi";
+  fetchRushRmaReport,
+  RushRmaReport,
+  RushRmaRow,
+  syncRushRma,
+} from "@/services/rushRmaApi";
 import { colors } from "@/theme/colors";
 import { useDashboardSync } from "@/context/DashboardSyncContext";
 import PermissionGuard from "@/components/PermissionGuard";
 import CacheNotice from "@/components/CacheNotice";
 
-function cleanText(
-  value: unknown,
-) {
-  return String(
-    value ?? "",
-  ).trim();
-}
+type TabKey =
+  | "summary"
+  | "US RMA"
+  | "EMEA RMA";
 
-function normalizeSentiment(
-  value?: string,
-) {
-  const normalized =
-    String(
-      value || "",
-    )
-      .trim()
-      .toLowerCase();
+const tabs: Array<{
+  key: TabKey;
+  label: string;
+}> = [
+  {
+    key: "summary",
+    label: "Summary",
+  },
+  {
+    key: "US RMA",
+    label: "US RMA",
+  },
+  {
+    key: "EMEA RMA",
+    label: "EMEA RMA",
+  },
+];
 
-  if (
-    normalized === "positive"
-  ) {
-    return "Positive";
-  }
-
-  if (
-    normalized === "negative"
-  ) {
-    return "Negative";
-  }
-
-  if (
-    normalized === "neutral"
-  ) {
-    return "Neutral";
-  }
-
-  return (
-    cleanText(value) ||
-    "Unknown"
-  );
-}
-
-function sentimentColor(
-  value?: string,
-) {
-  const sentiment =
-    normalizeSentiment(
-      value,
-    );
-
-  if (
-    sentiment === "Positive"
-  ) {
-    return colors.success;
-  }
-
-  if (
-    sentiment === "Negative"
-  ) {
-    return colors.danger;
-  }
-
-  if (
-    sentiment === "Neutral"
-  ) {
-    return colors.warning;
-  }
-
-  return colors.textDim;
-}
-
-function platformColor(
-  value?: string,
-) {
-  const platform =
-    String(
-      value || "",
-    ).toLowerCase();
-
-  if (
-    platform.includes(
-      "facebook",
-    )
-  ) {
-    return "#1877F2";
-  }
-
-  if (
-    platform.includes(
-      "instagram",
-    )
-  ) {
-    return "#E1306C";
-  }
-
-  if (
-    platform.includes(
-      "reddit",
-    )
-  ) {
-    return "#FF4500";
-  }
-
-  if (
-    platform.includes(
-      "youtube",
-    )
-  ) {
-    return "#FF0000";
-  }
-
-  if (
-    platform.includes(
-      "messenger",
-    )
-  ) {
-    return "#38BDF8";
-  }
-
-  return colors.primary;
-}
-
-function platformIcon(
-  value?: string,
-):
-  keyof typeof Ionicons.glyphMap {
-  const platform =
-    String(
-      value || "",
-    ).toLowerCase();
-
-  if (
-    platform.includes(
-      "youtube",
-    )
-  ) {
-    return "logo-youtube";
-  }
-
-  if (
-    platform.includes(
-      "instagram",
-    )
-  ) {
-    return "logo-instagram";
-  }
-
-  if (
-    platform.includes(
-      "facebook",
-    )
-  ) {
-    return "logo-facebook";
-  }
-
-  if (
-    platform.includes(
-      "reddit",
-    )
-  ) {
-    return "logo-reddit";
-  }
-
-  return "chatbubble-ellipses-outline";
-}
-
-function Chip({
+function FilterChip({
   label,
   active,
   onPress,
@@ -229,14 +86,49 @@ function Chip({
   );
 }
 
-function SocialScreenContent() {
+function regionColor(
+  value?: string,
+) {
+  const normalized =
+    String(
+      value || "",
+    ).toUpperCase();
+
+  if (
+    normalized.includes(
+      "EMEA",
+    )
+  ) {
+    return colors.primary;
+  }
+
+  if (
+    normalized.includes(
+      "US",
+    )
+  ) {
+    return colors.success;
+  }
+
+  return colors.info;
+}
+
+function RushRmaScreenContent() {
   const { syncVersion } = useDashboardSync();
+
+  const [
+    activeTab,
+    setActiveTab,
+  ] =
+    useState<TabKey>(
+      "summary",
+    );
 
   const [
     report,
     setReport,
   ] =
-    useState<SocialReport | null>(
+    useState<RushRmaReport | null>(
       null,
     );
 
@@ -247,14 +139,14 @@ function SocialScreenContent() {
     useState("");
 
   const [
-    platform,
-    setPlatform,
+    product,
+    setProduct,
   ] =
     useState("");
 
   const [
-    sentiment,
-    setSentiment,
+    month,
+    setMonth,
   ] =
     useState("");
 
@@ -286,9 +178,14 @@ function SocialScreenContent() {
     selected,
     setSelected,
   ] =
-    useState<SocialRow | null>(
+    useState<RushRmaRow | null>(
       null,
     );
+
+  const effectiveRegion =
+    activeTab === "summary"
+      ? ""
+      : activeTab;
 
   const load =
     useCallback(
@@ -303,14 +200,13 @@ function SocialScreenContent() {
 
         try {
           const data =
-            await fetchSocialReport(
+            await fetchRushRmaReport(
               {
                 search,
-                socialPlatform:
-                  platform,
-                platform,
-                customerResponse:
-                  sentiment,
+                region:
+                  effectiveRegion,
+                product,
+                month,
                 limit: 5000,
               },
             );
@@ -323,7 +219,7 @@ function SocialScreenContent() {
             requestError?.response
               ?.data?.message ||
               requestError?.message ||
-              "Unable to load Social Analytics.",
+              "Unable to load Rush RMA report.",
           );
         } finally {
           setLoading(false);
@@ -332,8 +228,9 @@ function SocialScreenContent() {
       },
       [
         search,
-        platform,
-        sentiment,
+        effectiveRegion,
+        product,
+        month,
       ],
     );
 
@@ -359,7 +256,7 @@ function SocialScreenContent() {
     setError("");
 
     try {
-      await syncSocial();
+      await syncRushRma();
       await load(false);
     } catch (
       syncError: any
@@ -368,7 +265,7 @@ function SocialScreenContent() {
         syncError?.response
           ?.data?.message ||
           syncError?.message ||
-          "Social sync failed.",
+          "Rush RMA sync failed.",
       );
     } finally {
       setSyncing(false);
@@ -380,52 +277,31 @@ function SocialScreenContent() {
     {};
 
   const rows =
+    report?.rows ||
+    [];
+
+  const productRows =
     useMemo(
       () =>
         [
-          ...(report?.rows ||
+          ...(analytics.byProduct ||
             []),
         ].sort(
           (
             first,
             second,
-          ) => {
-            const dateDiff =
-              String(
-                second.postQueryDate ||
-                  "",
-              ).localeCompare(
-                String(
-                  first.postQueryDate ||
-                    "",
-                ),
-              );
-
-            if (
-              dateDiff !==
-              0
-            ) {
-              return dateDiff;
-            }
-
-            return (
-              Number(
-                second.sheetRowNumber ||
-                  0,
-              ) -
-              Number(
-                first.sheetRowNumber ||
-                  0,
-              )
-            );
-          },
+          ) =>
+            Number(
+              second.value ||
+                0,
+            ) -
+            Number(
+              first.value ||
+                0,
+            ),
         ),
-      [report?.rows],
+      [analytics.byProduct],
     );
-
-  const platforms =
-    report?.filters?.platforms ||
-    [];
 
   return (
     <SafeAreaView
@@ -460,6 +336,23 @@ function SocialScreenContent() {
             styles.header
           }
         >
+          <Pressable
+            onPress={() =>
+              router.back()
+            }
+            style={
+              styles.back
+            }
+          >
+            <Ionicons
+              name="arrow-back"
+              size={20}
+              color={
+                colors.text
+              }
+            />
+          </Pressable>
+
           <View
             style={{
               flex: 1,
@@ -470,7 +363,7 @@ function SocialScreenContent() {
                 styles.eyebrow
               }
             >
-              SOCIAL REPORTING
+              US + EMEA INVENTORY
             </Text>
 
             <Text
@@ -478,7 +371,7 @@ function SocialScreenContent() {
                 styles.title
               }
             >
-              Social Analytics
+              Rush RMA
             </Text>
 
             <Text
@@ -519,12 +412,91 @@ function SocialScreenContent() {
           </Pressable>
         </View>
 
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={
+            false
+          }
+          contentContainerStyle={
+            styles.tabs
+          }
+        >
+          {tabs.map(
+            (tab) => (
+              <FilterChip
+                key={tab.key}
+                label={tab.label}
+                active={
+                  activeTab ===
+                  tab.key
+                }
+                onPress={() =>
+                  setActiveTab(
+                    tab.key,
+                  )
+                }
+              />
+            ),
+          )}
+        </ScrollView>
+
+
+        <View style={{
+          flexDirection: "row",
+          gap: 8,
+          padding: 4,
+          borderRadius: 16,
+          backgroundColor: colors.surface,
+          borderWidth: 1,
+          borderColor: colors.border,
+        }}>
+          <Pressable
+            onPress={() => router.replace("/(tabs)/rma")}
+            style={{
+              flex: 1,
+              minHeight: 42,
+              borderRadius: 12,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: "transparent",
+            }}
+          >
+            <Text style={{
+              color: colors.textMuted,
+              fontSize: 11,
+              fontWeight: "900",
+            }}>
+              Global RMA
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => router.replace("/(tabs)/rush-rma")}
+            style={{
+              flex: 1,
+              minHeight: 42,
+              borderRadius: 12,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: colors.primary,
+            }}
+          >
+            <Text style={{
+              color: "#000000",
+              fontSize: 11,
+              fontWeight: "900",
+            }}>
+              Rush RMA
+            </Text>
+          </Pressable>
+        </View>
+
         <TextInput
           value={search}
           onChangeText={
             setSearch
           }
-          placeholder="Search query, response, product or category..."
+          placeholder="Search product or description..."
           placeholderTextColor={
             colors.textDim
           }
@@ -539,34 +511,43 @@ function SocialScreenContent() {
             false
           }
           contentContainerStyle={
-            styles.chips
+            styles.tabs
           }
         >
-          <Chip
-            label="All platforms"
-            active={!platform}
+          <FilterChip
+            label="All products"
+            active={!product}
             onPress={() =>
-              setPlatform("")
+              setProduct("")
             }
           />
 
-          {platforms.map(
-            (item) => (
-              <Chip
-                key={item}
-                label={item}
-                active={
-                  platform ===
-                  item
-                }
-                onPress={() =>
-                  setPlatform(
-                    item,
-                  )
-                }
-              />
-            ),
-          )}
+          {(
+            report?.filters
+              ?.products ||
+            []
+          )
+            .slice(
+              0,
+              50,
+            )
+            .map(
+              (item) => (
+                <FilterChip
+                  key={item}
+                  label={item}
+                  active={
+                    product ===
+                    item
+                  }
+                  onPress={() =>
+                    setProduct(
+                      item,
+                    )
+                  }
+                />
+              ),
+            )}
         </ScrollView>
 
         <ScrollView
@@ -575,31 +556,31 @@ function SocialScreenContent() {
             false
           }
           contentContainerStyle={
-            styles.chips
+            styles.tabs
           }
         >
-          {[
-            "",
-            "Positive",
-            "Neutral",
-            "Negative",
-          ].map(
+          <FilterChip
+            label="All months"
+            active={!month}
+            onPress={() =>
+              setMonth("")
+            }
+          />
+
+          {(
+            report?.filters
+              ?.months ||
+            []
+          ).map(
             (item) => (
-              <Chip
-                key={
-                  item ||
-                  "All"
-                }
-                label={
-                  item ||
-                  "All sentiments"
-                }
+              <FilterChip
+                key={item}
+                label={item}
                 active={
-                  sentiment ===
-                  item
+                  month === item
                 }
                 onPress={() =>
-                  setSentiment(
+                  setMonth(
                     item,
                   )
                 }
@@ -653,17 +634,17 @@ function SocialScreenContent() {
               }
             >
               <MetricCard
-                label="Total Queries"
+                label="Actual RMA Replacement"
                 value={
-                  analytics.totalQueries ||
+                  analytics.actualRmaReplacement ||
                   0
                 }
               />
 
               <MetricCard
-                label="Products"
+                label="D Stock Units Received"
                 value={
-                  analytics.productCount ||
+                  analytics.dStockUnitsReceived ||
                   0
                 }
                 accent={
@@ -672,9 +653,20 @@ function SocialScreenContent() {
               />
 
               <MetricCard
-                label="Categories"
+                label="Total Queries"
                 value={
-                  analytics.categoryCount ||
+                  analytics.googleDriveRmaCases ||
+                  0
+                }
+                accent={
+                  colors.primary
+                }
+              />
+
+              <MetricCard
+                label="Pending to Ship"
+                value={
+                  analytics.pendingToShip ||
                   0
                 }
                 accent={
@@ -683,137 +675,75 @@ function SocialScreenContent() {
               />
 
               <MetricCard
-                label="Countries"
+                label="Pending to Receive"
                 value={
-                  analytics.countries ||
+                  analytics.pendingToReceive ||
                   0
                 }
                 accent={
-                  colors.success
+                  colors.danger
                 }
               />
             </View>
 
             <HorizontalBarChart
-              title="Product-wise Social Queries"
+              title="Month-wise Actual RMA"
               data={
-                analytics.byProduct ||
+                analytics.byMonth ||
                 []
               }
             />
 
             <HorizontalBarChart
-              title="Category-wise Social Queries"
+              title="Product-wise Actual RMA"
               data={
-                analytics.byCategory ||
-                []
+                productRows
               }
             />
 
             <HorizontalBarChart
-              title="Social Platform-wise Queries"
+              title="Sent Out Summary"
               data={
-                analytics.byPlatform ||
+                analytics.sentOutSummary ||
                 []
               }
             />
 
-            <HorizontalBarChart
-              title="Customer Sentiments"
-              data={
-                analytics.byCustomerResponse ||
-                []
-              }
-            />
-
-            <View
-              style={
-                styles.platformBreakdown
-              }
-            >
-              <Text
-                style={
-                  styles.sectionTitle
+            {activeTab ===
+            "summary" ? (
+              <HorizontalBarChart
+                title="Region-wise RMA"
+                data={
+                  analytics.byRegion ||
+                  []
                 }
-              >
-                Social Platform Breakdown
-              </Text>
+              />
+            ) : null}
 
-              {(analytics.byPlatform ||
-                []).map(
-                (
-                  item,
-                  index,
-                ) => (
-                  <View
-                    key={`${item.name}-${index}`}
-                    style={
-                      styles.platformRow
-                    }
-                  >
-                    <View
-                      style={[
-                        styles.platformIcon,
-                        {
-                          borderColor:
-                            platformColor(
-                              item.name,
-                            ),
-                          backgroundColor:
-                            `${platformColor(
-                              item.name,
-                            )}14`,
-                        },
-                      ]}
-                    >
-                      <Ionicons
-                        name={
-                          platformIcon(
-                            item.name,
-                          )
-                        }
-                        size={18}
-                        color={
-                          platformColor(
-                            item.name,
-                          )
-                        }
-                      />
-                    </View>
+            <HorizontalBarChart
+              title="Stock Received Summary"
+              data={
+                analytics.stockSummary ||
+                []
+              }
+            />
 
-                    <Text
-                      style={
-                        styles.platformName
-                      }
-                    >
-                      {
-                        item.name
-                      }
-                    </Text>
-
-                    <Text
-                      style={
-                        styles.platformValue
-                      }
-                    >
-                      {
-                        item.value
-                      }
-                    </Text>
-                  </View>
-                ),
-              )}
-            </View>
+            {/*
+              Pending Summary and D Stock Received charts
+              remain intentionally disabled to match the
+              current web checkpoint.
+            */}
 
             <Pressable
               onPress={() =>
                 router.push({
                   pathname: "/report-table",
                   params: {
-                    type: "social",
+                    type: "rush-rma",
                     search,
-                    platform,
-                    sentiment,
+                    region: effectiveRegion,
+                    product,
+                    month,
                   },
                 })
               }
@@ -830,13 +760,13 @@ function SocialScreenContent() {
 }
 
 
-export default function SocialScreen() {
+export default function RushRmaScreen() {
   return (
     <PermissionGuard
-      module="social"
-      title="Social Analytics"
+      module="rushRma"
+      title="Rush RMA"
     >
-      <SocialScreenContent />
+      <RushRmaScreenContent />
     </PermissionGuard>
   );
 }
@@ -858,6 +788,19 @@ const styles =
       alignItems:
         "flex-start",
       gap: 12,
+    },
+    back: {
+      width: 42,
+      height: 42,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor:
+        colors.border,
+      backgroundColor:
+        colors.surface,
+      alignItems: "center",
+      justifyContent:
+        "center",
     },
     eyebrow: {
       color:
@@ -888,19 +831,7 @@ const styles =
       justifyContent:
         "center",
     },
-    search: {
-      height: 48,
-      borderWidth: 1,
-      borderColor:
-        colors.border,
-      borderRadius: 15,
-      backgroundColor:
-        colors.surface,
-      color: colors.text,
-      paddingHorizontal: 15,
-      fontSize: 13,
-    },
-    chips: {
+    tabs: {
       gap: 8,
       paddingRight: 8,
     },
@@ -930,6 +861,18 @@ const styles =
       color:
         colors.primary,
     },
+    search: {
+      height: 48,
+      borderWidth: 1,
+      borderColor:
+        colors.border,
+      borderRadius: 15,
+      backgroundColor:
+        colors.surface,
+      color: colors.text,
+      paddingHorizontal: 15,
+      fontSize: 13,
+    },
     error: {
       color: "#FCA5A5",
       backgroundColor:
@@ -944,16 +887,6 @@ const styles =
       flexWrap: "wrap",
       gap: 10,
     },
-    platformBreakdown: {
-      borderWidth: 1,
-      borderColor:
-        colors.border,
-      borderRadius: 20,
-      backgroundColor:
-        colors.surface,
-      padding: 15,
-      gap: 11,
-    },
     sectionHead: {
       flexDirection: "row",
       alignItems: "center",
@@ -963,7 +896,7 @@ const styles =
     },
     sectionTitle: {
       color: colors.text,
-      fontSize: 13,
+      fontSize: 14,
       fontWeight: "900",
       textTransform:
         "uppercase",
@@ -974,32 +907,6 @@ const styles =
         colors.textDim,
       fontSize: 10,
       fontWeight: "800",
-    },
-    platformRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 10,
-    },
-    platformIcon: {
-      width: 38,
-      height: 38,
-      borderRadius: 13,
-      borderWidth: 1,
-      alignItems: "center",
-      justifyContent:
-        "center",
-    },
-    platformName: {
-      flex: 1,
-      color:
-        colors.textMuted,
-      fontSize: 11,
-      fontWeight: "800",
-    },
-    platformValue: {
-      color: colors.text,
-      fontSize: 13,
-      fontWeight: "900",
     },
     card: {
       borderWidth: 1,
@@ -1012,69 +919,52 @@ const styles =
     },
     cardTop: {
       flexDirection: "row",
-      alignItems:
-        "flex-start",
+      alignItems: "center",
       justifyContent:
         "space-between",
       gap: 10,
     },
-    platformTitle: {
+    cardProduct: {
       flex: 1,
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 10,
-    },
-    cardPlatform: {
       color: colors.text,
-      fontSize: 13,
+      fontSize: 14,
       fontWeight: "900",
     },
-    date: {
-      color:
-        colors.textDim,
-      fontSize: 9,
-      fontWeight: "700",
-      marginTop: 3,
-    },
-    sentimentBadge: {
+    regionBadge: {
       borderWidth: 1,
       borderRadius: 99,
       paddingHorizontal: 9,
-      paddingVertical: 5,
+      paddingVertical: 4,
     },
-    sentimentText: {
-      fontSize: 8,
+    regionText: {
+      fontSize: 9,
       fontWeight: "900",
     },
-    product: {
-      color:
-        colors.textMuted,
-      fontSize: 10,
-      fontWeight: "800",
-      marginTop: 12,
-    },
-    query: {
-      color:
-        colors.warning,
-      fontSize: 11,
-      lineHeight: 18,
-      fontWeight: "700",
-      marginTop: 10,
-    },
-    response: {
+    cardMeta: {
+      marginTop: 8,
       color:
         colors.primary,
-      fontSize: 11,
-      lineHeight: 18,
-      fontWeight: "700",
-      marginTop: 10,
+      fontSize: 10,
+      fontWeight: "900",
     },
-    category: {
+    description: {
+      marginTop: 9,
+      color:
+        colors.textMuted,
+      fontSize: 11,
+      lineHeight: 17,
+    },
+    values: {
+      marginTop: 11,
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 10,
+    },
+    value: {
       color:
         colors.textDim,
-      fontSize: 9,
+      fontSize: 10,
       fontWeight: "800",
-      marginTop: 10,
     },
     backdrop: {
       ...StyleSheet.absoluteFill,
@@ -1136,24 +1026,8 @@ const styles =
       lineHeight: 18,
       marginTop: 4,
     },
-    queryLarge: {
-      color:
-        colors.warning,
-      fontSize: 13,
-      lineHeight: 21,
-      fontWeight: "700",
-      marginTop: 8,
-    },
-    responseLarge: {
-      color:
-        colors.primary,
-      fontSize: 13,
-      lineHeight: 21,
-      fontWeight: "700",
-      marginTop: 8,
-    },
     close: {
-      marginTop: 18,
+      marginTop: 16,
       height: 46,
       borderRadius: 14,
       backgroundColor:

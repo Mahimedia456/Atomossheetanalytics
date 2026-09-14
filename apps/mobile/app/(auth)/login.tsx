@@ -3,7 +3,6 @@ import { router } from "expo-router";
 import { useState } from "react";
 import {
   ActivityIndicator,
-  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -19,7 +18,6 @@ import AtomosLogo from "@/components/AtomosLogo";
 import { useAuth } from "@/context/AuthContext";
 import { colors } from "@/theme/colors";
 
-const mahiLogo = require("../../assets/brand/mahi-logo.webp");
 
 export default function LoginScreen() {
   const { login } = useAuth();
@@ -41,7 +39,7 @@ export default function LoginScreen() {
 
     try {
       await login({ email: email.trim(), password });
-      router.replace("/(tabs)");
+      router.replace("/(tabs)/tickets");
     } catch (requestError: any) {
       setError(
         requestError?.response?.data?.message ||
@@ -153,14 +151,7 @@ export default function LoginScreen() {
                 {submitting ? "Signing In..." : "Sign In"}
               </Text>
             </Pressable>
-
-            <View style={styles.divider} />
-
-            <View style={styles.presentedBy}>
-              <Text style={styles.presentedText}>PRESENTED BY</Text>
-              <Image source={mahiLogo} resizeMode="contain" style={styles.mahiLogo} />
-            </View>
-          </View>
+</View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

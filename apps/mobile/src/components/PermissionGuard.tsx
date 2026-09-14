@@ -98,7 +98,7 @@ export default function PermissionGuard({
             styles.buttonText
           }
         >
-          Back to Home
+          Back to Tickets
         </Text>
       </Pressable>
     </View>

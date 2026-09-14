@@ -115,24 +115,6 @@ export default function MoreScreen() {
   } =
     useDashboardSync();
 
-  const canSatisfaction =
-    canAccessModule(
-      user,
-      "satisfaction",
-    );
-
-  const canRush =
-    canAccessModule(
-      user,
-      "rushRma",
-    );
-
-  const canAgents =
-    canAccessModule(
-      user,
-      "agents",
-    );
-
   const successful =
     lastResults.filter(
       (item) =>
@@ -165,7 +147,7 @@ export default function MoreScreen() {
             styles.eyebrow
           }
         >
-          ACCOUNT & REPORTS
+          ACCOUNT
         </Text>
 
         <Text
@@ -307,43 +289,7 @@ export default function MoreScreen() {
             )}
           </Pressable>
         </View>
-
-        {canSatisfaction ? (
-          <ReportRow
-            title="Satisfaction"
-            subtitle="Good/Bad feedback, comments and AI summary"
-            icon="happy-outline"
-            onPress={() =>
-              router.push(
-                "/satisfaction",
-              )
-            }
-          />
-        ) : null}
-
-        {canRush ? (
-          <ReportRow
-            title="Rush RMA"
-            subtitle="US RMA and EMEA RMA inventory reporting"
-            icon="flash-outline"
-            onPress={() =>
-              router.push(
-                "/rush-rma",
-              )
-            }
-          />
-        ) : null}
-
-        {canAgents ? (
-          <ReportRow
-            title="Agent Performance"
-            subtitle="Agent analytics and performance reporting"
-            icon="people-outline"
-            disabled
-          />
-        ) : null}
-
-        <Pressable
+<Pressable
           onPress={
             handleLogout
           }
@@ -371,7 +317,7 @@ export default function MoreScreen() {
             styles.version
           }
         >
-          Atomos Mobile · Phase 09–10 · v0.10.0
+          Atomos Mobile · v0.13.0
         </Text>
       </ScrollView>
     </SafeAreaView>

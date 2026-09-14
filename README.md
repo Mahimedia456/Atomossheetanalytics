@@ -1,11 +1,21 @@
-# Atomos Expo SDK 57 Worklets Fix
+# Atomos Ionicons Type Fix
 
-Expo Doctor reports one remaining package mismatch:
+The current `@expo/vector-icons` Ionicons type set does not include:
 
-- expected `react-native-worklets 0.10.1`
-- found `0.10.4`
+`table-outline`
 
-This patch changes only `apps/mobile/package.json` to `react-native-worklets: 0.10.1`.
+This patch replaces it with the supported:
+
+`list-outline`
+
+Affected screens:
+- Tickets
+- Satisfaction
+- Global RMA
+- Rush RMA
+- Social
+
+No npm reinstall is required.
 
 Extract into:
 
@@ -15,8 +25,5 @@ Then run:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
-.\FIX-WORKLETS-EXPO57.ps1
+.\FIX-IONICONS-TABLE.ps1
 ```
-
-This performs a normal `npm install` only; it does not delete `node_modules`.
-Then it runs TypeScript, Expo Doctor, and Expo config validation.

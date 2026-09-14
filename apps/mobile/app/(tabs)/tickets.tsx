@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
 import {
   useCallback,
   useEffect,
@@ -302,7 +303,7 @@ function TicketsScreenContent() {
                 styles.eyebrow
               }
             >
-              GOOGLE SHEET ANALYTICS
+              REPORTING ANALYTICS
             </Text>
 
             <Text
@@ -488,276 +489,25 @@ function TicketsScreenContent() {
               }
             />
 
-            <View
-              style={
-                styles.section
+            <Pressable
+              onPress={() =>
+                router.push({
+                  pathname: "/report-table",
+                  params: {
+                    type: "tickets",
+                    search,
+                    region,
+                  },
+                })
               }
+              style={styles.viewTableButton}
             >
-              <Text
-                style={
-                  styles.sectionTitle
-                }
-              >
-                Recent Tickets
-              </Text>
-
-              <Text
-                style={
-                  styles.count
-                }
-              >
-                {
-                  rows.length
-                }{" "}
-                records
-              </Text>
-            </View>
-
-            {rows
-              .slice(
-                0,
-                100,
-              )
-              .map(
-                (
-                  row,
-                  index,
-                ) => (
-                  <Pressable
-                    key={`${row.ticketNumber}-${index}`}
-                    onPress={() =>
-                      setSelected(
-                        row,
-                      )
-                    }
-                    style={
-                      styles.ticket
-                    }
-                  >
-                    <View
-                      style={
-                        styles.ticketTop
-                      }
-                    >
-                      <Text
-                        style={
-                          styles.ticketNumber
-                        }
-                      >
-                        #
-                        {row.ticketNumber ||
-                          "-"}
-                      </Text>
-
-                      <View
-                        style={[
-                          styles.region,
-                          {
-                            borderColor:
-                              regionColor(
-                                row.region,
-                              ),
-                            backgroundColor:
-                              `${regionColor(
-                                row.region,
-                              )}18`,
-                          },
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.regionText,
-                            {
-                              color:
-                                regionColor(
-                                  row.region,
-                                ),
-                            },
-                          ]}
-                        >
-                          {row.region ||
-                            "Unknown"}
-                        </Text>
-                      </View>
-                    </View>
-
-                    <Text
-                      style={
-                        styles.subject
-                      }
-                      numberOfLines={
-                        2
-                      }
-                    >
-                      {row.subject ||
-                        row.category ||
-                        "No subject"}
-                    </Text>
-
-                    <View
-                      style={
-                        styles.ticketBottom
-                      }
-                    >
-                      <Text
-                        style={
-                          styles.date
-                        }
-                      >
-                        {row.date ||
-                          "-"}
-                      </Text>
-
-                      <Text
-                        style={
-                          styles.product
-                        }
-                        numberOfLines={
-                          1
-                        }
-                      >
-                        {row.product ||
-                          "No product"}
-                      </Text>
-                    </View>
-                  </Pressable>
-                ),
-              )}
+              <Ionicons name="list-outline" size={18} color="#FFFFFF" />
+              <Text style={styles.viewTableText}>View Table</Text>
+            </Pressable>
           </>
         )}
       </ScrollView>
-
-      <Modal
-        visible={
-          Boolean(
-            selected,
-          )
-        }
-        transparent
-        animationType="slide"
-        onRequestClose={() =>
-          setSelected(
-            null,
-          )
-        }
-      >
-        <Pressable
-          style={
-            styles.backdrop
-          }
-          onPress={() =>
-            setSelected(
-              null,
-            )
-          }
-        />
-
-        <View
-          style={
-            styles.sheet
-          }
-        >
-          <View
-            style={
-              styles.handle
-            }
-          />
-
-          <Text
-            style={
-              styles.sheetTitle
-            }
-          >
-            Ticket #
-            {selected?.ticketNumber ||
-              "-"}
-          </Text>
-
-          {[
-            [
-              "Date",
-              selected?.date,
-            ],
-            [
-              "Region",
-              selected?.region,
-            ],
-            [
-              "Product",
-              selected?.product,
-            ],
-            [
-              "Category",
-              selected?.category,
-            ],
-            [
-              "Subject",
-              selected?.subject,
-            ],
-            [
-              "Internal",
-              selected?.internal,
-            ],
-            [
-              "Comment",
-              selected?.comment,
-            ],
-            [
-              "Feature Request",
-              selected?.featureRequestSummary,
-            ],
-          ].map(
-            (
-              [
-                label,
-                value,
-              ],
-            ) => (
-              <View
-                key={label}
-                style={
-                  styles.detail
-                }
-              >
-                <Text
-                  style={
-                    styles.detailKey
-                  }
-                >
-                  {label}
-                </Text>
-
-                <Text
-                  style={
-                    styles.detailValue
-                  }
-                >
-                  {value || "-"}
-                </Text>
-              </View>
-            ),
-          )}
-
-          <Pressable
-            style={
-              styles.close
-            }
-            onPress={() =>
-              setSelected(
-                null,
-              )
-            }
-          >
-            <Text
-              style={
-                styles.closeText
-              }
-            >
-              Close
-            </Text>
-          </Pressable>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -1033,4 +783,22 @@ const styles =
       color: "#000",
       fontWeight: "900",
     },
+viewTableButton: {
+  minHeight: 50,
+  borderRadius: 16,
+  backgroundColor: colors.primary,
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 8,
+  paddingHorizontal: 18,
+  marginTop: 4,
+},
+viewTableText: {
+  color: "#FFFFFF",
+  fontSize: 12,
+  fontWeight: "900",
+  letterSpacing: .5,
+},
+
   });

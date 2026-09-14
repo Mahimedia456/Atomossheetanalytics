@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
 import {
   useCallback,
   useEffect,
@@ -635,7 +636,7 @@ function GlobalRmaScreenContent() {
                 ? `Synced ${new Date(
                     report.syncedAt,
                   ).toLocaleString()}`
-                : "Google Sheet report"}
+                : "Live report"}
             </Text>
           </View>
 
@@ -661,6 +662,57 @@ function GlobalRmaScreenContent() {
                 color="#000"
               />
             )}
+          </Pressable>
+        </View>
+
+
+        <View style={{
+          flexDirection: "row",
+          gap: 8,
+          padding: 4,
+          borderRadius: 16,
+          backgroundColor: colors.surface,
+          borderWidth: 1,
+          borderColor: colors.border,
+        }}>
+          <Pressable
+            onPress={() => router.replace("/(tabs)/rma")}
+            style={{
+              flex: 1,
+              minHeight: 42,
+              borderRadius: 12,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: colors.primary,
+            }}
+          >
+            <Text style={{
+              color: "#000000",
+              fontSize: 11,
+              fontWeight: "900",
+            }}>
+              Global RMA
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => router.replace("/(tabs)/rush-rma")}
+            style={{
+              flex: 1,
+              minHeight: 42,
+              borderRadius: 12,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: "transparent",
+            }}
+          >
+            <Text style={{
+              color: colors.textMuted,
+              fontSize: 11,
+              fontWeight: "900",
+            }}>
+              Rush RMA
+            </Text>
           </Pressable>
         </View>
 
@@ -955,342 +1007,26 @@ function GlobalRmaScreenContent() {
               }
             />
 
-            <View
-              style={
-                styles.sectionHead
+            <Pressable
+              onPress={() =>
+                router.push({
+                  pathname: "/report-table",
+                  params: {
+                    type: "global-rma",
+                    search,
+                    region,
+                    year,
+                  },
+                })
               }
+              style={styles.viewTableButton}
             >
-              <Text
-                style={
-                  styles.sectionTitle
-                }
-              >
-                Global RMA Records
-              </Text>
-
-              <Text
-                style={
-                  styles.count
-                }
-              >
-                {
-                  rows.length
-                }{" "}
-                records
-              </Text>
-            </View>
-
-            {rows
-              .slice(
-                0,
-                150,
-              )
-              .map(
-                (
-                  row,
-                  index,
-                ) => (
-                  <Pressable
-                    key={`${row.id || row.rmaNumber || index}`}
-                    onPress={() =>
-                      setSelected(
-                        row,
-                      )
-                    }
-                    style={
-                      styles.rmaCard
-                    }
-                  >
-                    <View
-                      style={
-                        styles.rmaTop
-                      }
-                    >
-                      <Text
-                        style={
-                          styles.rmaNumber
-                        }
-                      >
-                        RMA{" "}
-                        {row.rmaNumber ||
-                          "-"}
-                      </Text>
-
-                      <View
-                        style={[
-                          styles.regionBadge,
-                          {
-                            borderColor:
-                              regionAccent(
-                                row.region,
-                              ),
-                            backgroundColor:
-                              `${regionAccent(
-                                row.region,
-                              )}18`,
-                          },
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.regionText,
-                            {
-                              color:
-                                regionAccent(
-                                  row.region,
-                                ),
-                            },
-                          ]}
-                        >
-                          {row.region ||
-                            "Unknown"}
-                        </Text>
-                      </View>
-                    </View>
-
-                    <Text
-                      numberOfLines={
-                        2
-                      }
-                      style={
-                        styles.product
-                      }
-                    >
-                      {row.productName ||
-                        row.deviceName ||
-                        row.product ||
-                        "Unknown Product"}
-                    </Text>
-
-                    <View
-                      style={
-                        styles.dateRow
-                      }
-                    >
-                      <Text
-                        style={
-                          styles.date
-                        }
-                      >
-                        Date:{" "}
-                        {row.entryDate ||
-                          "-"}
-                      </Text>
-
-                      <Text
-                        style={
-                          styles.date
-                        }
-                      >
-                        Processed:{" "}
-                        {row.processedDate ||
-                          "-"}
-                      </Text>
-                    </View>
-
-                    <Text
-                      numberOfLines={
-                        2
-                      }
-                      style={
-                        styles.fault
-                      }
-                    >
-                      {row.faultCategory ||
-                        row.faultDescription ||
-                        "No fault category"}
-                    </Text>
-                  </Pressable>
-                ),
-              )}
+              <Ionicons name="list-outline" size={18} color="#FFFFFF" />
+              <Text style={styles.viewTableText}>View Table</Text>
+            </Pressable>
           </>
         )}
       </ScrollView>
-
-      <Modal
-        visible={
-          Boolean(
-            selected,
-          )
-        }
-        transparent
-        animationType="slide"
-        onRequestClose={() =>
-          setSelected(
-            null,
-          )
-        }
-      >
-        <Pressable
-          style={
-            styles.backdrop
-          }
-          onPress={() =>
-            setSelected(
-              null,
-            )
-          }
-        />
-
-        <View
-          style={
-            styles.sheet
-          }
-        >
-          <ScrollView
-            contentContainerStyle={
-              styles.sheetContent
-            }
-          >
-            <View
-              style={
-                styles.handle
-              }
-            />
-
-            <Text
-              style={
-                styles.sheetTitle
-              }
-            >
-              RMA{" "}
-              {selected?.rmaNumber ||
-                "-"}
-            </Text>
-
-            {[
-              [
-                "Region",
-                selected?.region,
-              ],
-              [
-                "Date",
-                selected?.entryDate,
-              ],
-              [
-                "Processed Date",
-                selected?.processedDate,
-              ],
-              [
-                "Product",
-                selected?.productName,
-              ],
-              [
-                "Product SKU",
-                selected?.productSku,
-              ],
-              [
-                "Faulty Serial Number",
-                selected?.serialNumber,
-              ],
-              [
-                "RMA Type",
-                selected?.rmaType,
-              ],
-              [
-                "Stock Type",
-                selected?.stockType,
-              ],
-              [
-                "Fault Category",
-                selected?.faultCategory,
-              ],
-              [
-                "Return Reason",
-                selected?.faultDescription,
-              ],
-              [
-                "Action Taken",
-                selected?.actionTaken,
-              ],
-              [
-                "RMA Status",
-                selected?.rmaStatus,
-              ],
-              [
-                "Customer Channel",
-                selected?.customerType,
-              ],
-              [
-                "Company",
-                selected?.companyName,
-              ],
-              [
-                "Tracking Number",
-                selected?.trackingNumber,
-              ],
-              [
-                "Replacement Order",
-                selected?.replacementOrderNumber,
-              ],
-              [
-                "RO Notes",
-                selected?.roNotes,
-              ],
-              [
-                "Customer Return Tracking",
-                selected?.customerReturnTrackingNumber,
-              ],
-            ].map(
-              (
-                [
-                  label,
-                  value,
-                ],
-              ) => (
-                <View
-                  key={
-                    label
-                  }
-                  style={
-                    styles.detail
-                  }
-                >
-                  <Text
-                    style={
-                      styles.detailKey
-                    }
-                  >
-                    {
-                      label
-                    }
-                  </Text>
-
-                  <Text
-                    style={
-                      styles.detailValue
-                    }
-                  >
-                    {String(
-                      value ||
-                        "-",
-                    )}
-                  </Text>
-                </View>
-              ),
-            )}
-
-            <Pressable
-              style={
-                styles.close
-              }
-              onPress={() =>
-                setSelected(
-                  null,
-                )
-              }
-            >
-              <Text
-                style={
-                  styles.closeText
-                }
-              >
-                Close
-              </Text>
-            </Pressable>
-          </ScrollView>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -1632,4 +1368,22 @@ const styles =
       color: "#000",
       fontWeight: "900",
     },
+viewTableButton: {
+  minHeight: 50,
+  borderRadius: 16,
+  backgroundColor: colors.primary,
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 8,
+  paddingHorizontal: 18,
+  marginTop: 4,
+},
+viewTableText: {
+  color: "#FFFFFF",
+  fontSize: 12,
+  fontWeight: "900",
+  letterSpacing: .5,
+},
+
   });

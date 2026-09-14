@@ -22,11 +22,13 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import HorizontalBarChart from "@/components/HorizontalBarChart";
 import MetricCard from "@/components/MetricCard";
 import {
-  fetchSocialReport,
-  SocialReport,
-  SocialRow,
-  syncSocial,
-} from "@/services/socialApi";
+  analyzeSatisfactionResponse,
+  fetchSatisfactionReport,
+  SatisfactionAiResult,
+  SatisfactionReport,
+  SatisfactionRow,
+  syncSatisfaction,
+} from "@/services/satisfactionApi";
 import { colors } from "@/theme/colors";
 import { useDashboardSync } from "@/context/DashboardSyncContext";
 import PermissionGuard from "@/components/PermissionGuard";
@@ -40,32 +42,88 @@ function cleanText(
   ).trim();
 }
 
-function normalizeSentiment(
-  value?: string,
+function getTicketId(
+  row: SatisfactionRow,
 ) {
-  const normalized =
-    String(
-      value || "",
-    )
-      .trim()
-      .toLowerCase();
+  return (
+    row.ticketId ||
+    row.ticket_id ||
+    row.ticketNumber ||
+    row.ticket_number ||
+    "-"
+  );
+}
+
+function getComment(
+  row: SatisfactionRow,
+) {
+  return cleanText(
+    row.comments ||
+      row.comment ||
+      row.feedback,
+  );
+}
+
+function getCategory(
+  row: SatisfactionRow,
+) {
+  return cleanText(
+    row.category ||
+      row.Category,
+  );
+}
+
+function getDate(
+  row: SatisfactionRow,
+) {
+  return cleanText(
+    row.date ||
+      row.date_display ||
+      row.updatedDate ||
+      row.updated_date,
+  ) || "-";
+}
+
+function normalizeRating(
+  value: unknown,
+) {
+  const rating =
+    cleanText(
+      value,
+    ).toLowerCase();
 
   if (
-    normalized === "positive"
+    [
+      "good",
+      "positive",
+      "satisfied",
+      "very satisfied",
+      "excellent",
+      "4",
+      "5",
+    ].includes(rating)
   ) {
-    return "Positive";
+    return "Good";
   }
 
   if (
-    normalized === "negative"
+    [
+      "bad",
+      "negative",
+      "dissatisfied",
+      "unsatisfied",
+      "poor",
+      "1",
+      "2",
+    ].includes(rating)
   ) {
-    return "Negative";
+    return "Bad";
   }
 
   if (
-    normalized === "neutral"
+    rating === "offered"
   ) {
-    return "Neutral";
+    return "Offered";
   }
 
   return (
@@ -74,131 +132,7 @@ function normalizeSentiment(
   );
 }
 
-function sentimentColor(
-  value?: string,
-) {
-  const sentiment =
-    normalizeSentiment(
-      value,
-    );
-
-  if (
-    sentiment === "Positive"
-  ) {
-    return colors.success;
-  }
-
-  if (
-    sentiment === "Negative"
-  ) {
-    return colors.danger;
-  }
-
-  if (
-    sentiment === "Neutral"
-  ) {
-    return colors.warning;
-  }
-
-  return colors.textDim;
-}
-
-function platformColor(
-  value?: string,
-) {
-  const platform =
-    String(
-      value || "",
-    ).toLowerCase();
-
-  if (
-    platform.includes(
-      "facebook",
-    )
-  ) {
-    return "#1877F2";
-  }
-
-  if (
-    platform.includes(
-      "instagram",
-    )
-  ) {
-    return "#E1306C";
-  }
-
-  if (
-    platform.includes(
-      "reddit",
-    )
-  ) {
-    return "#FF4500";
-  }
-
-  if (
-    platform.includes(
-      "youtube",
-    )
-  ) {
-    return "#FF0000";
-  }
-
-  if (
-    platform.includes(
-      "messenger",
-    )
-  ) {
-    return "#38BDF8";
-  }
-
-  return colors.primary;
-}
-
-function platformIcon(
-  value?: string,
-):
-  keyof typeof Ionicons.glyphMap {
-  const platform =
-    String(
-      value || "",
-    ).toLowerCase();
-
-  if (
-    platform.includes(
-      "youtube",
-    )
-  ) {
-    return "logo-youtube";
-  }
-
-  if (
-    platform.includes(
-      "instagram",
-    )
-  ) {
-    return "logo-instagram";
-  }
-
-  if (
-    platform.includes(
-      "facebook",
-    )
-  ) {
-    return "logo-facebook";
-  }
-
-  if (
-    platform.includes(
-      "reddit",
-    )
-  ) {
-    return "logo-reddit";
-  }
-
-  return "chatbubble-ellipses-outline";
-}
-
-function Chip({
+function RatingChip({
   label,
   active,
   onPress,
@@ -229,34 +163,72 @@ function Chip({
   );
 }
 
-function SocialScreenContent() {
+function RatingBadge({
+  rating,
+}: {
+  rating: string;
+}) {
+  const isGood =
+    rating === "Good";
+
+  const isBad =
+    rating === "Bad";
+
+  return (
+    <View
+      style={[
+        styles.ratingBadge,
+        isGood &&
+          styles.ratingGood,
+        isBad &&
+          styles.ratingBad,
+      ]}
+    >
+      <Ionicons
+        name={
+          isGood
+            ? "happy-outline"
+            : isBad
+              ? "sad-outline"
+              : "ellipse-outline"
+        }
+        size={14}
+        color={
+          isGood
+            ? "#34D399"
+            : isBad
+              ? "#F87171"
+              : colors.textDim
+        }
+      />
+
+      <Text
+        style={[
+          styles.ratingText,
+          isGood && {
+            color: "#34D399",
+          },
+          isBad && {
+            color: "#F87171",
+          },
+        ]}
+      >
+        {rating}
+      </Text>
+    </View>
+  );
+}
+
+function SatisfactionScreenContent() {
   const { syncVersion } = useDashboardSync();
 
   const [
     report,
     setReport,
   ] =
-    useState<SocialReport | null>(
+    useState<SatisfactionReport | null>(
       null,
     );
-
-  const [
-    search,
-    setSearch,
-  ] =
-    useState("");
-
-  const [
-    platform,
-    setPlatform,
-  ] =
-    useState("");
-
-  const [
-    sentiment,
-    setSentiment,
-  ] =
-    useState("");
 
   const [
     loading,
@@ -283,12 +255,44 @@ function SocialScreenContent() {
     useState("");
 
   const [
+    search,
+    setSearch,
+  ] =
+    useState("");
+
+  const [
+    rating,
+    setRating,
+  ] =
+    useState("Good");
+
+  const [
     selected,
     setSelected,
   ] =
-    useState<SocialRow | null>(
+    useState<SatisfactionRow | null>(
       null,
     );
+
+  const [
+    aiResult,
+    setAiResult,
+  ] =
+    useState<SatisfactionAiResult | null>(
+      null,
+    );
+
+  const [
+    aiLoading,
+    setAiLoading,
+  ] =
+    useState(false);
+
+  const [
+    aiError,
+    setAiError,
+  ] =
+    useState("");
 
   const load =
     useCallback(
@@ -303,14 +307,10 @@ function SocialScreenContent() {
 
         try {
           const data =
-            await fetchSocialReport(
+            await fetchSatisfactionReport(
               {
                 search,
-                socialPlatform:
-                  platform,
-                platform,
-                customerResponse:
-                  sentiment,
+                rating,
                 limit: 5000,
               },
             );
@@ -323,7 +323,7 @@ function SocialScreenContent() {
             requestError?.response
               ?.data?.message ||
               requestError?.message ||
-              "Unable to load Social Analytics.",
+              "Unable to load Satisfaction report.",
           );
         } finally {
           setLoading(false);
@@ -332,8 +332,7 @@ function SocialScreenContent() {
       },
       [
         search,
-        platform,
-        sentiment,
+        rating,
       ],
     );
 
@@ -354,30 +353,27 @@ function SocialScreenContent() {
     }
   }, [syncVersion]);
 
-  async function doSync() {
-    setSyncing(true);
-    setError("");
+  const doSync =
+    async () => {
+      setSyncing(true);
+      setError("");
 
-    try {
-      await syncSocial();
-      await load(false);
-    } catch (
-      syncError: any
-    ) {
-      setError(
-        syncError?.response
-          ?.data?.message ||
-          syncError?.message ||
-          "Social sync failed.",
-      );
-    } finally {
-      setSyncing(false);
-    }
-  }
-
-  const analytics =
-    report?.analytics ||
-    {};
+      try {
+        await syncSatisfaction();
+        await load(false);
+      } catch (
+        syncError: any
+      ) {
+        setError(
+          syncError?.response
+            ?.data?.message ||
+            syncError?.message ||
+            "Satisfaction sync failed.",
+        );
+      } finally {
+        setSyncing(false);
+      }
+    };
 
   const rows =
     useMemo(
@@ -389,43 +385,70 @@ function SocialScreenContent() {
           (
             first,
             second,
-          ) => {
-            const dateDiff =
+          ) =>
+            String(
+              getDate(second),
+            ).localeCompare(
               String(
-                second.postQueryDate ||
-                  "",
-              ).localeCompare(
-                String(
-                  first.postQueryDate ||
-                    "",
-                ),
-              );
-
-            if (
-              dateDiff !==
-              0
-            ) {
-              return dateDiff;
-            }
-
-            return (
-              Number(
-                second.sheetRowNumber ||
-                  0,
-              ) -
-              Number(
-                first.sheetRowNumber ||
-                  0,
-              )
-            );
-          },
+                getDate(first),
+              ),
+            ),
         ),
       [report?.rows],
     );
 
-  const platforms =
-    report?.filters?.platforms ||
-    [];
+  const analytics =
+    report?.analytics ||
+    {};
+
+  async function openSummary(
+    row: SatisfactionRow,
+  ) {
+    setSelected(row);
+    setAiResult(null);
+    setAiError("");
+
+    const comment =
+      getComment(row);
+
+    if (!comment) {
+      return;
+    }
+
+    setAiLoading(true);
+
+    try {
+      const result =
+        await analyzeSatisfactionResponse(
+          {
+            ticketId:
+              String(
+                getTicketId(row),
+              ),
+            rating:
+              normalizeRating(
+                row.rating,
+              ),
+            category:
+              getCategory(row),
+            comment,
+          },
+        );
+
+      setAiResult(result);
+    } catch (
+      analysisError: any
+    ) {
+      setAiError(
+        analysisError?.response
+          ?.data?.message ||
+          analysisError?.message ||
+          "Unable to analyze this response.",
+      );
+    } finally {
+      setAiLoading(false);
+    }
+  }
 
   return (
     <SafeAreaView
@@ -460,17 +483,34 @@ function SocialScreenContent() {
             styles.header
           }
         >
+          <Pressable
+            onPress={() =>
+              router.back()
+            }
+            style={
+              styles.back
+            }
+          >
+            <Ionicons
+              name="arrow-back"
+              size={20}
+              color={
+                colors.text
+              }
+            />
+          </Pressable>
+
           <View
-            style={{
-              flex: 1,
-            }}
+            style={
+              styles.headingCopy
+            }
           >
             <Text
               style={
                 styles.eyebrow
               }
             >
-              SOCIAL REPORTING
+              CUSTOMER FEEDBACK
             </Text>
 
             <Text
@@ -478,7 +518,7 @@ function SocialScreenContent() {
                 styles.title
               }
             >
-              Social Analytics
+              Satisfaction
             </Text>
 
             <Text
@@ -524,7 +564,7 @@ function SocialScreenContent() {
           onChangeText={
             setSearch
           }
-          placeholder="Search query, response, product or category..."
+          placeholder="Search ticket, comment or category..."
           placeholderTextColor={
             colors.textDim
           }
@@ -542,64 +582,27 @@ function SocialScreenContent() {
             styles.chips
           }
         >
-          <Chip
-            label="All platforms"
-            active={!platform}
-            onPress={() =>
-              setPlatform("")
-            }
-          />
-
-          {platforms.map(
-            (item) => (
-              <Chip
-                key={item}
-                label={item}
-                active={
-                  platform ===
-                  item
-                }
-                onPress={() =>
-                  setPlatform(
-                    item,
-                  )
-                }
-              />
-            ),
-          )}
-        </ScrollView>
-
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={
-            false
-          }
-          contentContainerStyle={
-            styles.chips
-          }
-        >
           {[
+            "Good",
+            "Bad",
             "",
-            "Positive",
-            "Neutral",
-            "Negative",
           ].map(
             (item) => (
-              <Chip
+              <RatingChip
                 key={
                   item ||
                   "All"
                 }
                 label={
                   item ||
-                  "All sentiments"
+                  "All"
                 }
                 active={
-                  sentiment ===
+                  rating ===
                   item
                 }
                 onPress={() =>
-                  setSentiment(
+                  setRating(
                     item,
                   )
                 }
@@ -653,167 +656,60 @@ function SocialScreenContent() {
               }
             >
               <MetricCard
-                label="Total Queries"
+                label="Responses"
                 value={
-                  analytics.totalQueries ||
+                  analytics.totalResponses ||
                   0
                 }
               />
 
               <MetricCard
-                label="Products"
+                label="Good"
                 value={
-                  analytics.productCount ||
-                  0
-                }
-                accent={
-                  colors.info
-                }
-              />
-
-              <MetricCard
-                label="Categories"
-                value={
-                  analytics.categoryCount ||
-                  0
-                }
-                accent={
-                  colors.warning
-                }
-              />
-
-              <MetricCard
-                label="Countries"
-                value={
-                  analytics.countries ||
+                  analytics.goodResponses ||
                   0
                 }
                 accent={
                   colors.success
                 }
               />
+
+              <MetricCard
+                label="Bad"
+                value={
+                  analytics.badResponses ||
+                  0
+                }
+                accent={
+                  colors.danger
+                }
+              />
             </View>
 
             <HorizontalBarChart
-              title="Product-wise Social Queries"
+              title="With Comments vs Without Comments"
               data={
-                analytics.byProduct ||
+                analytics.byCommentStatus ||
                 []
               }
             />
 
             <HorizontalBarChart
-              title="Category-wise Social Queries"
+              title="Satisfaction by Category"
               data={
                 analytics.byCategory ||
                 []
               }
             />
 
-            <HorizontalBarChart
-              title="Social Platform-wise Queries"
-              data={
-                analytics.byPlatform ||
-                []
-              }
-            />
-
-            <HorizontalBarChart
-              title="Customer Sentiments"
-              data={
-                analytics.byCustomerResponse ||
-                []
-              }
-            />
-
-            <View
-              style={
-                styles.platformBreakdown
-              }
-            >
-              <Text
-                style={
-                  styles.sectionTitle
-                }
-              >
-                Social Platform Breakdown
-              </Text>
-
-              {(analytics.byPlatform ||
-                []).map(
-                (
-                  item,
-                  index,
-                ) => (
-                  <View
-                    key={`${item.name}-${index}`}
-                    style={
-                      styles.platformRow
-                    }
-                  >
-                    <View
-                      style={[
-                        styles.platformIcon,
-                        {
-                          borderColor:
-                            platformColor(
-                              item.name,
-                            ),
-                          backgroundColor:
-                            `${platformColor(
-                              item.name,
-                            )}14`,
-                        },
-                      ]}
-                    >
-                      <Ionicons
-                        name={
-                          platformIcon(
-                            item.name,
-                          )
-                        }
-                        size={18}
-                        color={
-                          platformColor(
-                            item.name,
-                          )
-                        }
-                      />
-                    </View>
-
-                    <Text
-                      style={
-                        styles.platformName
-                      }
-                    >
-                      {
-                        item.name
-                      }
-                    </Text>
-
-                    <Text
-                      style={
-                        styles.platformValue
-                      }
-                    >
-                      {
-                        item.value
-                      }
-                    </Text>
-                  </View>
-                ),
-              )}
-            </View>
-
             <Pressable
               onPress={() =>
                 router.push({
                   pathname: "/report-table",
                   params: {
-                    type: "social",
+                    type: "satisfaction",
                     search,
-                    platform,
-                    sentiment,
+                    rating,
                   },
                 })
               }
@@ -830,13 +726,13 @@ function SocialScreenContent() {
 }
 
 
-export default function SocialScreen() {
+export default function SatisfactionScreen() {
   return (
     <PermissionGuard
-      module="social"
-      title="Social Analytics"
+      module="satisfaction"
+      title="Satisfaction"
     >
-      <SocialScreenContent />
+      <SatisfactionScreenContent />
     </PermissionGuard>
   );
 }
@@ -858,6 +754,22 @@ const styles =
       alignItems:
         "flex-start",
       gap: 12,
+    },
+    back: {
+      width: 42,
+      height: 42,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor:
+        colors.border,
+      backgroundColor:
+        colors.surface,
+      alignItems: "center",
+      justifyContent:
+        "center",
+    },
+    headingCopy: {
+      flex: 1,
     },
     eyebrow: {
       color:
@@ -902,14 +814,14 @@ const styles =
     },
     chips: {
       gap: 8,
-      paddingRight: 8,
+      paddingRight: 10,
     },
     chip: {
       borderWidth: 1,
       borderColor:
         colors.border,
       borderRadius: 99,
-      paddingHorizontal: 14,
+      paddingHorizontal: 15,
       paddingVertical: 9,
       backgroundColor:
         colors.surface,
@@ -944,16 +856,6 @@ const styles =
       flexWrap: "wrap",
       gap: 10,
     },
-    platformBreakdown: {
-      borderWidth: 1,
-      borderColor:
-        colors.border,
-      borderRadius: 20,
-      backgroundColor:
-        colors.surface,
-      padding: 15,
-      gap: 11,
-    },
     sectionHead: {
       flexDirection: "row",
       alignItems: "center",
@@ -963,11 +865,11 @@ const styles =
     },
     sectionTitle: {
       color: colors.text,
-      fontSize: 13,
+      fontSize: 14,
       fontWeight: "900",
+      letterSpacing: 1.1,
       textTransform:
         "uppercase",
-      letterSpacing: 1,
     },
     count: {
       color:
@@ -975,33 +877,7 @@ const styles =
       fontSize: 10,
       fontWeight: "800",
     },
-    platformRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 10,
-    },
-    platformIcon: {
-      width: 38,
-      height: 38,
-      borderRadius: 13,
-      borderWidth: 1,
-      alignItems: "center",
-      justifyContent:
-        "center",
-    },
-    platformName: {
-      flex: 1,
-      color:
-        colors.textMuted,
-      fontSize: 11,
-      fontWeight: "800",
-    },
-    platformValue: {
-      color: colors.text,
-      fontSize: 13,
-      fontWeight: "900",
-    },
-    card: {
+    responseCard: {
       borderWidth: 1,
       borderColor:
         colors.borderSoft,
@@ -1010,71 +886,109 @@ const styles =
         colors.surface,
       padding: 15,
     },
-    cardTop: {
-      flexDirection: "row",
-      alignItems:
-        "flex-start",
-      justifyContent:
-        "space-between",
-      gap: 10,
-    },
-    platformTitle: {
-      flex: 1,
+    responseTop: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 10,
+      justifyContent:
+        "space-between",
+      gap: 12,
     },
-    cardPlatform: {
+    ticket: {
       color: colors.text,
-      fontSize: 13,
+      fontSize: 14,
       fontWeight: "900",
     },
-    date: {
+    ratingBadge: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 5,
+      borderWidth: 1,
+      borderColor:
+        colors.border,
+      borderRadius: 99,
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      backgroundColor:
+        colors.surfaceRaised,
+    },
+    ratingGood: {
+      borderColor:
+        "rgba(34,197,94,.35)",
+      backgroundColor:
+        "rgba(34,197,94,.10)",
+    },
+    ratingBad: {
+      borderColor:
+        "rgba(239,68,68,.35)",
+      backgroundColor:
+        "rgba(239,68,68,.10)",
+    },
+    ratingText: {
       color:
         colors.textDim,
       fontSize: 9,
-      fontWeight: "700",
-      marginTop: 3,
-    },
-    sentimentBadge: {
-      borderWidth: 1,
-      borderRadius: 99,
-      paddingHorizontal: 9,
-      paddingVertical: 5,
-    },
-    sentimentText: {
-      fontSize: 8,
       fontWeight: "900",
     },
-    product: {
+    metaRow: {
+      marginTop: 10,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent:
+        "space-between",
+      gap: 12,
+    },
+    date: {
       color:
         colors.textMuted,
       fontSize: 10,
       fontWeight: "800",
-      marginTop: 12,
-    },
-    query: {
-      color:
-        colors.warning,
-      fontSize: 11,
-      lineHeight: 18,
-      fontWeight: "700",
-      marginTop: 10,
-    },
-    response: {
-      color:
-        colors.primary,
-      fontSize: 11,
-      lineHeight: 18,
-      fontWeight: "700",
-      marginTop: 10,
     },
     category: {
       color:
         colors.textDim,
-      fontSize: 9,
+      fontSize: 10,
       fontWeight: "800",
-      marginTop: 10,
+    },
+    comment: {
+      marginTop: 12,
+      fontSize: 12,
+      lineHeight: 19,
+      fontWeight: "700",
+    },
+    goodComment: {
+      color:
+        colors.primary,
+    },
+    badComment: {
+      color: "#F87171",
+    },
+    summaryButton: {
+      alignSelf:
+        "flex-start",
+      marginTop: 13,
+      minHeight: 40,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent:
+        "center",
+      gap: 7,
+      borderRadius: 12,
+      backgroundColor:
+        colors.primary,
+      paddingHorizontal: 13,
+    },
+    summaryDisabled: {
+      backgroundColor:
+        colors.borderSoft,
+    },
+    summaryText: {
+      color: "#000",
+      fontSize: 10,
+      fontWeight: "900",
+    },
+    summaryDisabledText: {
+      color:
+        colors.textDim,
     },
     backdrop: {
       ...StyleSheet.absoluteFill,
@@ -1106,55 +1020,106 @@ const styles =
       backgroundColor:
         colors.border,
       alignSelf: "center",
-      marginBottom: 18,
+      marginBottom: 20,
+    },
+    sheetEyebrow: {
+      color:
+        colors.primary,
+      fontSize: 9,
+      fontWeight: "900",
+      letterSpacing: 1.4,
     },
     sheetTitle: {
-      color: colors.text,
-      fontSize: 21,
+      color:
+        colors.text,
+      fontSize: 22,
       fontWeight: "900",
-      marginBottom: 10,
+      marginTop: 6,
     },
-    detail: {
-      borderBottomWidth: 1,
-      borderBottomColor:
+    originalComment: {
+      color:
+        colors.textMuted,
+      fontSize: 12,
+      lineHeight: 19,
+      marginTop: 13,
+      borderWidth: 1,
+      borderColor:
         colors.borderSoft,
-      paddingVertical: 9,
+      borderRadius: 16,
+      padding: 13,
+      backgroundColor:
+        colors.surface,
     },
-    detailKey: {
+    aiLoading: {
+      minHeight: 120,
+      alignItems: "center",
+      justifyContent:
+        "center",
+      gap: 12,
+      marginTop: 14,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor:
+        "rgba(0,220,197,.25)",
+      backgroundColor:
+        colors.primarySoft,
+    },
+    aiLoadingText: {
+      color:
+        colors.primary,
+      fontSize: 11,
+      fontWeight: "800",
+    },
+    aiResult: {
+      marginTop: 14,
+      borderWidth: 1,
+      borderColor:
+        colors.border,
+      borderRadius: 18,
+      padding: 15,
+      backgroundColor:
+        colors.surface,
+    },
+    aiBadges: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 8,
+    },
+    aiBadge: {
+      borderWidth: 1,
+      borderColor:
+        "rgba(0,220,197,.25)",
+      borderRadius: 99,
+      backgroundColor:
+        colors.primarySoft,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+    },
+    aiBadgeText: {
+      color:
+        colors.primary,
+      fontSize: 9,
+      fontWeight: "900",
+    },
+    aiLabel: {
       color:
         colors.textDim,
       fontSize: 9,
       fontWeight: "900",
-      textTransform:
-        "uppercase",
-      letterSpacing: 1,
+      letterSpacing: 1.2,
+      marginTop: 16,
     },
-    detailValue: {
+    aiCopy: {
       color:
-        colors.textMuted,
+        colors.text,
       fontSize: 12,
-      lineHeight: 18,
-      marginTop: 4,
-    },
-    queryLarge: {
-      color:
-        colors.warning,
-      fontSize: 13,
-      lineHeight: 21,
+      lineHeight: 19,
       fontWeight: "700",
-      marginTop: 8,
-    },
-    responseLarge: {
-      color:
-        colors.primary,
-      fontSize: 13,
-      lineHeight: 21,
-      fontWeight: "700",
-      marginTop: 8,
+      marginTop: 6,
     },
     close: {
       marginTop: 18,
-      height: 46,
+      minHeight: 46,
       borderRadius: 14,
       backgroundColor:
         colors.primary,
