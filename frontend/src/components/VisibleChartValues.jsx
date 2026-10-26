@@ -26,11 +26,12 @@ function OutsideValue({ x, y, width, height, value, index, color, stacked }) {
   </g>;
 }
 
-export function Bar({ children, labelList, ...props }) {
+export function Bar({ children, showValueLabels = true, ...props }) {
+  const isStacked = Boolean(props.stackId);
   const color = typeof props.fill === "string" ? props.fill : "#00dcc5";
   return <BaseBar {...props}>
     {children}
-    <LabelList dataKey={props.dataKey} content={(p) => <OutsideValue {...p} color={color} stacked={Boolean(props.stackId)} />} />
+    {!isStacked && showValueLabels !== false ? <LabelList dataKey={props.dataKey} content={(p) => <OutsideValue {...p} color={color} stacked={false} />} /> : null}
   </BaseBar>;
 }
 export function Line({ children, ...props }) {
@@ -48,22 +49,24 @@ export function StockStackValues({ series = [
   { key: "BStock", color: "#38bdf8" },
   { key: "OtherStock", color: "#71717a" },
 ] }) {
-  return <LabelList content={({ x, y, width, height, payload }) => {
-    if (![x, y, width, height].every((v) => Number.isFinite(Number(v))) || !payload) return null;
-    const visible = series.filter((item) => Number(payload[item.key]) > 0);
-    if (!visible.length) return null;
-    const baseline = Number(y) + Number(height) / 2;
-    let offset = Number(x) + Number(width) + 9;
-    return <g pointerEvents="none" className="pdf-visible-value">
-      {visible.map((item) => {
-        const val = Number(payload[item.key]).toLocaleString("en-US", { maximumFractionDigits: 2 });
-        const squareX = offset;
-        offset += 12 + Math.max(18, val.length * 7) + 8;
+  return <LabelList content={(props) => {
+    const { x, y, width, height, payload } = props;
+    if (!payload || ![x,y,width,height].every(v=>Number.isFinite(Number(v)))) return null;
+    const values = series.map(item=>({...item,value:Number(payload[item.key])})).filter(item=>Number.isFinite(item.value)&&item.value>0);
+    if (!values.length) return null;
+    const lastEnd=Number(x)+Number(width);
+    const cy=Number(y)+Number(height)/2;
+    let cursor=lastEnd+10;
+    return <g pointerEvents="none" className="pdf-visible-value pdf-stock-end-values">
+      {values.map((item)=>{
+        const text=item.value.toLocaleString('en-US',{maximumFractionDigits:2});
+        const squareX=cursor;
+        cursor += 12 + Math.max(16,text.length*7) + 8;
         return <g key={item.key}>
-          <rect x={squareX} y={baseline - 5} width={10} height={10} rx={1.5} fill={item.color}/>
-          <text x={squareX + 13} y={baseline} textAnchor="start" dominantBaseline="central" fill="#ffffff" fontSize={11} fontWeight={800}>{val}</text>
+          <rect x={squareX} y={cy-4} width={8} height={8} rx={1} fill={item.color} />
+          <text x={squareX+12} y={cy} dominantBaseline="central" textAnchor="start" fill="#ffffff" fontSize={11} fontWeight={800}>{text}</text>
         </g>;
       })}
     </g>;
-  }} />;
+  }}/>;
 }

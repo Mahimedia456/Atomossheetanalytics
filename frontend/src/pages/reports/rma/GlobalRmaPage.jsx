@@ -2358,6 +2358,8 @@ export default function GlobalRmaPage() {
               radius={[0, 8, 8, 0]}
               maxBarSize={28}
             >
+              
+            
               <StockStackValues />
             </Bar>
           </BarChart>

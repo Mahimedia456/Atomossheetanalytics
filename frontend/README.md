@@ -1,14 +1,18 @@
-# Global RMA StockStackValues missing-export hotfix
+# Stock stacked chart + PDF layout correction
 
-Cause: GlobalRmaPage.jsx imports StockStackValues, but the later shared VisibleChartValues.jsx no longer exported it.
+Apply **over your current source**; no full report page overwrite.
 
-This safe installer **appends only the missing export** to the existing component, without overwriting current chart or report code. It keeps the stock color-square + white-number display and produces a timestamped backup.
+- Removes duplicate numeric labels appearing inside and above stacked segments.
+- Places a single line of `colored square + white value` labels to the right of each entire Stock Sent by Device Name stacked bar.
+- Preserves hover, chart colors, chart data and report layout.
+- Removes the earlier PDF SVG-to-HTML label mirroring invocation that can duplicate/offset chart text in export.
+- Backs up all three affected original files before modification.
 
-Extract at `E:\atomos-zendesk-analytics\frontend`, then:
+Run from frontend root:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass -Force
-.\APPLY-STOCKSTACK-EXPORT-FIX.ps1
+.\APPLY-STACK-PDF-FIX.ps1
 ```
 
-Requires existing `LabelList` import in `VisibleChartValues.jsx`. The script runs `npm run build` after patching.
+The patch intentionally aborts if the stock chart source has an unexpected structure. It does not claim a browser/PDF validation.

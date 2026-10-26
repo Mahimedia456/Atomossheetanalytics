@@ -193,10 +193,8 @@ async function captureSection(node) {
   const height = Math.max(1, Math.ceil(node.scrollHeight || rect.height));
   // Cap raster size to avoid GPU/canvas exhaustion on large dashboard tables.
   const pixelRatio = Math.min(1, Math.sqrt(MAX_CAPTURE_PIXELS / (width * height)));
-  const restoreLabels = mirrorSvgLabels(node);
-  let dataUrl;
-  try {
-    dataUrl = await withTimeout(toJpeg(node, {
+  
+  const dataUrl = await withTimeout(toJpeg(node, {
     quality: 0.82,
     cacheBust: false,
     backgroundColor: "#000000",
@@ -206,9 +204,6 @@ async function captureSection(node) {
     skipFonts: false,
     filter: (child) => !(child instanceof Element) || !child.matches?.(SKIP_SELECTOR),
   }), CAPTURE_TIMEOUT_MS, "PDF section rendering");
-  } finally {
-    restoreLabels();
-  }
   return { dataUrl, width: Math.max(1, Math.ceil(width * pixelRatio)), height: Math.max(1, Math.ceil(height * pixelRatio)) };
 }
 
