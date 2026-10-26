@@ -1,4 +1,4 @@
-import { toPng } from "html-to-image";
+import { toJpeg } from "html-to-image";
 import jsPDF from "jspdf";
 
 const MAX_TABLE_ROWS = 36;
@@ -146,8 +146,8 @@ async function waitForImages(root) {
   }));
 }
 
-const CAPTURE_TIMEOUT_MS = 25000;
-const MAX_CAPTURE_PIXELS = 3500000;
+const CAPTURE_TIMEOUT_MS = 12000;
+const MAX_CAPTURE_PIXELS = 4200000;
 
 async function withTimeout(promise, milliseconds, label) {
   let timer;
@@ -163,13 +163,41 @@ async function withTimeout(promise, milliseconds, label) {
   }
 }
 
+// Recharts SVG text can disappear when html-to-image serializes SVG into
+// foreignObject. Mirror chart labels as ordinary HTML ONLY during capture.
+function mirrorSvgLabels(node) {
+  const hostRect = node.getBoundingClientRect();
+  const overlay = document.createElement("div");
+  overlay.setAttribute("data-pdf-text-overlay", "true");
+  overlay.style.cssText = `position:absolute;left:0;top:0;width:${node.scrollWidth}px;height:${node.scrollHeight}px;pointer-events:none;z-index:9999;overflow:visible;`;
+  const previousPosition = node.style.position;
+  if (getComputedStyle(node).position === "static") node.style.position = "relative";
+  for (const label of node.querySelectorAll(".recharts-wrapper svg text")) {
+    const value = label.textContent?.trim();
+    if (!value) continue;
+    const rect = label.getBoundingClientRect();
+    if (!rect.width || !rect.height) continue;
+    const computed = getComputedStyle(label);
+    const span = document.createElement("span");
+    span.textContent = value;
+    span.style.cssText = `position:absolute;left:${rect.left-hostRect.left+rect.width/2}px;top:${rect.top-hostRect.top+rect.height/2}px;transform:translate(-50%,-50%);white-space:nowrap;font-family:Arial,sans-serif;font-size:${computed.fontSize || "11px"};font-weight:${computed.fontWeight || "600"};color:${computed.fill && computed.fill !== "none" ? computed.fill : "#fff"};line-height:1;`;
+    overlay.appendChild(span);
+  }
+  node.appendChild(overlay);
+  return () => { overlay.remove(); node.style.position = previousPosition; };
+}
+
 async function captureSection(node) {
   const rect = node.getBoundingClientRect();
   const width = Math.max(1, Math.ceil(rect.width));
   const height = Math.max(1, Math.ceil(node.scrollHeight || rect.height));
   // Cap raster size to avoid GPU/canvas exhaustion on large dashboard tables.
-  const pixelRatio = Math.min(1.25, Math.sqrt(MAX_CAPTURE_PIXELS / (width * height)));
-  const dataUrl = await withTimeout(toPng(node, {
+  const pixelRatio = Math.min(1, Math.sqrt(MAX_CAPTURE_PIXELS / (width * height)));
+  const restoreLabels = mirrorSvgLabels(node);
+  let dataUrl;
+  try {
+    dataUrl = await withTimeout(toJpeg(node, {
+    quality: 0.82,
     cacheBust: false,
     backgroundColor: "#000000",
     pixelRatio,
@@ -178,6 +206,9 @@ async function captureSection(node) {
     skipFonts: false,
     filter: (child) => !(child instanceof Element) || !child.matches?.(SKIP_SELECTOR),
   }), CAPTURE_TIMEOUT_MS, "PDF section rendering");
+  } finally {
+    restoreLabels();
+  }
   return { dataUrl, width: Math.max(1, Math.ceil(width * pixelRatio)), height: Math.max(1, Math.ceil(height * pixelRatio)) };
 }
 
@@ -191,7 +222,7 @@ function loadImageData(url) {
       const context = canvas.getContext("2d");
       if (!context) return reject(new Error("Unable to prepare image."));
       context.drawImage(image, 0, 0);
-      resolve({ dataUrl: canvas.toDataURL("image/png"), width: image.naturalWidth, height: image.naturalHeight });
+      resolve({ dataUrl: canvas.toDataURL("image/jpeg", 0.82), width: image.naturalWidth, height: image.naturalHeight });
     };
     image.onerror = reject;
     image.src = `${url}${url.includes("?") ? "&" : "?"}pdf=${Date.now()}`;
@@ -253,7 +284,7 @@ function addKeepTogether(pdf, image, cursorY) {
     cursorY = PAGE_MARGIN;
   }
   const x = PAGE_MARGIN + (usableW - drawW) / 2;
-  pdf.addImage(image.dataUrl, "PNG", x, cursorY, drawW, drawH, undefined, "FAST");
+  pdf.addImage(image.dataUrl, "JPEG", x, cursorY, drawW, drawH, undefined, "FAST");
   return cursorY + drawH + 4;
 }
 
@@ -286,7 +317,7 @@ async function addTablePages(pdf, image) {
     context.fillStyle = "#000";
     context.fillRect(0, 0, canvas.width, canvas.height);
     context.drawImage(source, 0, y, image.width, h, 0, 0, image.width, h);
-    pdf.addImage(canvas.toDataURL("image/png"), "PNG", PAGE_MARGIN, PAGE_MARGIN, usableW, h / pxPerMm, undefined, "FAST");
+    pdf.addImage(canvas.toDataURL("image/jpeg", 0.82), "JPEG", PAGE_MARGIN, PAGE_MARGIN, usableW, h / pxPerMm, undefined, "FAST");
     canvas.width = 1;
     canvas.height = 1;
   }
@@ -313,8 +344,8 @@ export async function exportDashboardPdf({
   try {
     progress(3, "Initializing PDF export...");
     await waitForPdfUiPaint();
-    await wait(350);
-    await waitForImages(root);
+    await wait(30);
+    // Image resources already loaded in the live dashboard; avoid a global 5-second stall.
     const sections = collectSections(root);
     if (!sections.length) throw new Error("No visible PDF sections were found in this page.");
     let logo = null;
@@ -325,8 +356,7 @@ export async function exportDashboardPdf({
     let renderedSections = 0;
     for (let index = 0; index < sections.length; index += 1) {
       progress(12 + Math.round(((index + 1) / sections.length) * 72), `Rendering section ${index + 1} of ${sections.length}...`);
-      await waitForPdfUiPaint();
-      await wait(80);
+      // Capture immediately: no extra frame delay per section.
       const node = sections[index];
       let image;
       try {
@@ -345,11 +375,11 @@ export async function exportDashboardPdf({
     }
     if (!renderedSections) throw new Error("PDF rendering failed for every section. Check browser console for details.");
     progress(94, "Finalizing PDF...");
-    await wait(50);
+    
     const safe = String(filename).replace(/\.pdf$/i, "").trim() || "atomos-dashboard";
     pdf.save(`${safe}-${new Date().toISOString().slice(0, 10)}.pdf`);
     progress(100, "PDF ready. Download started.");
-    await wait(1300);
+    await wait(150);
   } finally {
     root.classList.remove("pdf-export-mode");
     style.remove();

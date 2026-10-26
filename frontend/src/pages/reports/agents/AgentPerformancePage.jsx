@@ -1,3 +1,4 @@
+import { Bar, Pie, Line } from "../../../components/VisibleChartValues.jsx";
 import {
   useEffect,
   useMemo,
@@ -5,14 +6,14 @@ import {
 } from "react";
 
 import {
-  Bar,
+  Bar as RechartsBar,
   BarChart,
   CartesianGrid,
   Cell,
   Legend,
-  Line,
+  Line as RechartsLine,
   LineChart,
-  Pie,
+  Pie as RechartsPie,
   PieChart,
   ResponsiveContainer,
   Tooltip,

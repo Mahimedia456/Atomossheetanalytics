@@ -1,15 +1,15 @@
+import { Bar, Pie, Line } from "../../../components/VisibleChartValues.jsx";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
-  Bar,
+  Bar as RechartsBar,
   BarChart,
-  LabelList,
   CartesianGrid,
   Cell,
   Legend,
-  Line,
+  Line as RechartsLine,
   LineChart,
-  Pie,
+  Pie as RechartsPie,
   PieChart,
   ResponsiveContainer,
   Tooltip,
@@ -1722,7 +1722,7 @@ export default function GlobalRmaPage() {
               layout="vertical"
               margin={{
                 top: 10,
-                right: 85,
+                right: 35,
                 left: 20,
                 bottom: 20,
               }}
@@ -1784,14 +1784,6 @@ export default function GlobalRmaPage() {
                 radius={[0, 8, 8, 0]}
                 maxBarSize={26}
               >
-                <LabelList
-                  dataKey="value"
-                  position="right"
-                  fill="#ffffff"
-                  fontSize={12}
-                  fontWeight={800}
-                  formatter={(value) => Number(value || 0).toLocaleString()}
-                />
                 {productTrend.map((item, index) => (
                   <Cell
                     key={`product-${item.name}-${index}`}
@@ -1896,14 +1888,6 @@ export default function GlobalRmaPage() {
                 radius={[0, 8, 8, 0]}
                 maxBarSize={26}
               >
-                <LabelList
-                  dataKey="value"
-                  position="right"
-                  fill="#ffffff"
-                  fontSize={12}
-                  fontWeight={800}
-                  formatter={(value) => Number(value || 0).toLocaleString()}
-                />
                 {faultTrend.map((item, index) => (
                   <Cell
                     key={`fault-${item.name}-${index}`}
