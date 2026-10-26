@@ -1,11 +1,14 @@
-# Atomos stacked stock chart — color square + white number
+# Global RMA StockStackValues missing-export hotfix
 
-Run from **frontend project root**:
+Cause: GlobalRmaPage.jsx imports StockStackValues, but the later shared VisibleChartValues.jsx no longer exported it.
+
+This safe installer **appends only the missing export** to the existing component, without overwriting current chart or report code. It keeps the stock color-square + white-number display and produces a timestamped backup.
+
+Extract at `E:\atomos-zendesk-analytics\frontend`, then:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass -Force
-.\APPLY-STOCK-SQUARE-NUMBERS.ps1
-npm run build
+.\APPLY-STOCKSTACK-EXPORT-FIX.ps1
 ```
 
-This patch **does not overwrite** your GlobalRmaPage.jsx. It modifies only the `Stock Sent by Device Name` chart using exact anchors and backs up both files. It installs `src/components/VisibleChartValues.jsx` based on the previous Outside White patch. Applies to that named stacked chart only, not all other stacked charts. Requires the previous All Charts Values patch to be installed. Numeric labels appear **outside the full stack** as a small colored square followed by a white number; zero values are hidden. Tooltip remains unchanged.
+Requires existing `LabelList` import in `VisibleChartValues.jsx`. The script runs `npm run build` after patching.

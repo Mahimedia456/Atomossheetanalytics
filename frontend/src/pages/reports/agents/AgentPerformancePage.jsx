@@ -1,25 +1,10 @@
-import { Bar, Pie, Line } from "../../../components/VisibleChartValues.jsx";
+import { Line } from "../../../components/VisibleChartValues.jsx";
 import {
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+  useEffect, useMemo, useState, } from "react";
 
 import {
-  Bar as RechartsBar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Legend,
-  Line as RechartsLine,
-  LineChart,
-  Pie as RechartsPie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+  Bar as RechartsBar, BarChart, CartesianGrid, Cell, Legend, Line as RechartsLine, LineChart, Pie as RechartsPie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Bar, Pie } from "../../../components/VisibleChartValues.jsx";
 
 import * as XLSX from "xlsx";
 

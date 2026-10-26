@@ -1,21 +1,9 @@
-import { Bar, Pie, Line, StockStackValues } from "../../../components/VisibleChartValues.jsx";
+import { StockStackValues } from "../../../components/VisibleChartValues.jsx";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
-  Bar as RechartsBar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Legend,
-  Line as RechartsLine,
-  LineChart,
-  Pie as RechartsPie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+  Bar as RechartsBar, BarChart, CartesianGrid, Cell, Legend, Line as RechartsLine, LineChart, Pie as RechartsPie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Bar, Pie, Line } from "../../../components/VisibleChartValues.jsx";
 
 import {
   ArrowDownRight,

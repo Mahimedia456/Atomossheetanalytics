@@ -1,0 +1,27 @@
+
+// Compatibility export for GlobalRmaPage's existing stock-classification chart.
+// Color square followed by white value at the right of the complete horizontal stack.
+export function StockStackValues({ series = [
+  { key: "RStock", color: "#00dcc5" },
+  { key: "BStock", color: "#38bdf8" },
+  { key: "OtherStock", color: "#71717a" },
+] }) {
+  return <LabelList content={({ x, y, width, height, payload }) => {
+    if (![x, y, width, height].every((v) => Number.isFinite(Number(v))) || !payload) return null;
+    const visible = series.filter((item) => Number(payload[item.key]) > 0);
+    if (!visible.length) return null;
+    const baseline = Number(y) + Number(height) / 2;
+    let offset = Number(x) + Number(width) + 9;
+    return <g pointerEvents="none" className="pdf-visible-value">
+      {visible.map((item) => {
+        const val = Number(payload[item.key]).toLocaleString("en-US", { maximumFractionDigits: 2 });
+        const squareX = offset;
+        offset += 12 + Math.max(18, val.length * 7) + 8;
+        return <g key={item.key}>
+          <rect x={squareX} y={baseline - 5} width={10} height={10} rx={1.5} fill={item.color}/>
+          <text x={squareX + 13} y={baseline} textAnchor="start" dominantBaseline="central" fill="#ffffff" fontSize={11} fontWeight={800}>{val}</text>
+        </g>;
+      })}
+    </g>;
+  }} />;
+}
