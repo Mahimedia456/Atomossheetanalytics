@@ -91,7 +91,7 @@ function lockPage() {
     bodyOverscroll: body.style.overscrollBehavior,
     bodyTouch: body.style.touchAction,
   };
-  const prevent = (event) => event.preventDefault();
+  const prevent = (event) => { if (event.cancelable) event.preventDefault(); };
   html.style.setProperty("overflow", "hidden", "important");
   html.style.setProperty("overscroll-behavior", "none", "important");
   body.style.setProperty("overflow", "hidden", "important");
@@ -146,25 +146,39 @@ async function waitForImages(root) {
   }));
 }
 
+const CAPTURE_TIMEOUT_MS = 25000;
+const MAX_CAPTURE_PIXELS = 3500000;
+
+async function withTimeout(promise, milliseconds, label) {
+  let timer;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        timer = window.setTimeout(() => reject(new Error(`${label} timed out after ${Math.round(milliseconds / 1000)} seconds.`)), milliseconds);
+      }),
+    ]);
+  } finally {
+    window.clearTimeout(timer);
+  }
+}
+
 async function captureSection(node) {
   const rect = node.getBoundingClientRect();
-  const width = Math.max(1, Math.ceil(node.scrollWidth || rect.width));
+  const width = Math.max(1, Math.ceil(rect.width));
   const height = Math.max(1, Math.ceil(node.scrollHeight || rect.height));
-  const pixelRatio = 1.35;
-  const dataUrl = await toPng(node, {
-    cacheBust: true,
+  // Cap raster size to avoid GPU/canvas exhaustion on large dashboard tables.
+  const pixelRatio = Math.min(1.25, Math.sqrt(MAX_CAPTURE_PIXELS / (width * height)));
+  const dataUrl = await withTimeout(toPng(node, {
+    cacheBust: false,
     backgroundColor: "#000000",
     pixelRatio,
     width,
     height,
-    canvasWidth: Math.ceil(width * pixelRatio),
-    canvasHeight: Math.ceil(height * pixelRatio),
-    filter: (child) => {
-      if (!(child instanceof Element)) return true;
-      return !child.matches?.(SKIP_SELECTOR);
-    },
-  });
-  return { dataUrl, width: Math.ceil(width * pixelRatio), height: Math.ceil(height * pixelRatio) };
+    skipFonts: false,
+    filter: (child) => !(child instanceof Element) || !child.matches?.(SKIP_SELECTOR),
+  }), CAPTURE_TIMEOUT_MS, "PDF section rendering");
+  return { dataUrl, width: Math.max(1, Math.ceil(width * pixelRatio)), height: Math.max(1, Math.ceil(height * pixelRatio)) };
 }
 
 function loadImageData(url) {
@@ -308,20 +322,30 @@ export async function exportDashboardPdf({
     const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4", compress: true });
     blackPage(pdf);
     let cursorY = drawHeader(pdf, title, logo);
+    let renderedSections = 0;
     for (let index = 0; index < sections.length; index += 1) {
       progress(12 + Math.round(((index + 1) / sections.length) * 72), `Rendering section ${index + 1} of ${sections.length}...`);
       await waitForPdfUiPaint();
       await wait(80);
       const node = sections[index];
-      const image = await captureSection(node);
+      let image;
+      try {
+        image = await captureSection(node);
+      } catch (error) {
+        console.error(`PDF section ${index + 1} failed:`, error);
+        progress(12 + Math.round(((index + 1) / sections.length) * 72), `Skipping section ${index + 1}: rendering failed`);
+        continue;
+      }
+      renderedSections += 1;
       if (node.matches("[data-pdf-table='true']")) {
         cursorY = await addTablePages(pdf, image);
       } else {
         cursorY = addKeepTogether(pdf, image, cursorY);
       }
     }
+    if (!renderedSections) throw new Error("PDF rendering failed for every section. Check browser console for details.");
     progress(94, "Finalizing PDF...");
-    await wait(250);
+    await wait(50);
     const safe = String(filename).replace(/\.pdf$/i, "").trim() || "atomos-dashboard";
     pdf.save(`${safe}-${new Date().toISOString().slice(0, 10)}.pdf`);
     progress(100, "PDF ready. Download started.");

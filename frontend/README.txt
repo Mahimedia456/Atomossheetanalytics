@@ -1,0 +1,1 @@
+Replace src/pages/reports/rma/GlobalRmaPage.jsx in frontend root. Run npm run build and deploy dist. Adds always-visible value labels to RMA Product Trend bars; preserves hover tooltip and pie labels.

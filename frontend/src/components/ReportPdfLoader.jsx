@@ -26,12 +26,12 @@ const blockedKeys = new Set([
 ]);
 
 function preventScroll(event) {
-  event.preventDefault();
+  if (event.cancelable) event.preventDefault();
 }
 
 function preventKeyboardScroll(event) {
   if (blockedKeys.has(event.key)) {
-    event.preventDefault();
+    if (event.cancelable) event.preventDefault();
   }
 }
 
@@ -210,8 +210,7 @@ export default function ReportPdfLoader({
         overscrollBehavior: "none",
         touchAction: "none",
       }}
-      onWheel={preventScroll}
-      onTouchMove={preventScroll}
+
     >
       <div className="relative w-full max-w-md overflow-hidden rounded-[30px] border border-[#00dcc5]/30 bg-[#050505] p-7 shadow-[0_0_110px_rgba(0,220,197,0.22)]">
         <div className="flex items-start gap-4">

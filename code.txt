@@ -1,0 +1,5 @@
+cd E:\atomos-zendesk-analytics\apps\mobile
+eas build -p android --profile preview
+
+
+npx expo start --tunnel --port 8081

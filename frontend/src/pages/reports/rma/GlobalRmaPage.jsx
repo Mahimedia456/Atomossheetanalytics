@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Bar,
   BarChart,
+  LabelList,
   CartesianGrid,
   Cell,
   Legend,
@@ -1721,7 +1722,7 @@ export default function GlobalRmaPage() {
               layout="vertical"
               margin={{
                 top: 10,
-                right: 35,
+                right: 85,
                 left: 20,
                 bottom: 20,
               }}
@@ -1783,6 +1784,14 @@ export default function GlobalRmaPage() {
                 radius={[0, 8, 8, 0]}
                 maxBarSize={26}
               >
+                <LabelList
+                  dataKey="value"
+                  position="right"
+                  fill="#ffffff"
+                  fontSize={12}
+                  fontWeight={800}
+                  formatter={(value) => Number(value || 0).toLocaleString()}
+                />
                 {productTrend.map((item, index) => (
                   <Cell
                     key={`product-${item.name}-${index}`}
@@ -1887,6 +1896,14 @@ export default function GlobalRmaPage() {
                 radius={[0, 8, 8, 0]}
                 maxBarSize={26}
               >
+                <LabelList
+                  dataKey="value"
+                  position="right"
+                  fill="#ffffff"
+                  fontSize={12}
+                  fontWeight={800}
+                  formatter={(value) => Number(value || 0).toLocaleString()}
+                />
                 {faultTrend.map((item, index) => (
                   <Cell
                     key={`fault-${item.name}-${index}`}
