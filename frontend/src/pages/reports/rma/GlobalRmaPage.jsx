@@ -1,4 +1,4 @@
-import { Bar, Pie, Line } from "../../../components/VisibleChartValues.jsx";
+import { Bar, Pie, Line, StockStackValues } from "../../../components/VisibleChartValues.jsx";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
@@ -2326,7 +2326,7 @@ export default function GlobalRmaPage() {
           <BarChart
             data={sentStockDeviceRows}
             layout="vertical"
-            margin={{ top: 15, right: 35, left: 40, bottom: 20 }}
+            margin={{ top: 15, right: 225, left: 40, bottom: 20 }}
           >
             <CartesianGrid stroke="#18181b" strokeDasharray="4 4" />
             <XAxis
@@ -2347,6 +2347,7 @@ export default function GlobalRmaPage() {
             />
             <Bar
               dataKey="RStock"
+              showValueLabels={false}
               name="R Stock"
               stackId="sent-stock"
               fill="#00dcc5"
@@ -2354,6 +2355,7 @@ export default function GlobalRmaPage() {
             />
             <Bar
               dataKey="BStock"
+              showValueLabels={false}
               name="B Stock"
               stackId="sent-stock"
               fill="#38bdf8"
@@ -2361,12 +2363,15 @@ export default function GlobalRmaPage() {
             />
             <Bar
               dataKey="OtherStock"
+              showValueLabels={false}
               name="Other Stock"
               stackId="sent-stock"
               fill="#71717a"
               radius={[0, 8, 8, 0]}
               maxBarSize={28}
-            />
+            >
+              <StockStackValues />
+            </Bar>
           </BarChart>
         </ResponsiveContainer>
       </ChartCard>
