@@ -1,11 +1,12 @@
-Fast single-page PDF export patch for Atomos dashboard.
+# Atomos PDF full-page chart labels fix
 
-Replace file:
-  src/utils/dashboardPdfExport.js
+Replace `src/utils/dashboardPdfExport.js` in frontend. Preserves existing
+single full-page PDF capture and copies all Recharts SVG text (including
+pie, donut, horizontal and vertical bar value labels) into temporary HTML
+overlays at the same screen coordinates during export.
 
-What it does:
-- Captures the visible report dashboard as one full-page image.
-- Hides filters and tables in export.
-- Keeps charts exactly as seen on screen, including visible values.
-- Generates a single long PDF page instead of multiple split pages.
-- Much faster than section-by-section rendering.
+Filters and tables remain hidden in the PDF. No chart page or backend files
+are modified. After replacement run `npm run build` and test a PDF export.
+
+The live dashboard is not modified after export: overlay and temporary styles
+are cleaned up even on error. This is source-validated, not browser-verified.

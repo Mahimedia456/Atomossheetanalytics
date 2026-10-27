@@ -102,6 +102,8 @@ function createRuntimeStyle(rootId) {
       caret-color:transparent!important;
       scroll-behavior:auto!important;
     }
+    #${safeId}.pdf-export-mode.pdf-has-svg-overlay .recharts-surface text{visibility:hidden!important}
+    #${safeId}.pdf-export-mode [data-pdf-svg-label-overlay] span{visibility:visible!important}
     #${safeId}.pdf-export-mode .recharts-wrapper,
     #${safeId}.pdf-export-mode .recharts-surface,
     #${safeId}.pdf-export-mode svg{overflow:visible!important}
@@ -122,6 +124,67 @@ async function waitForImages(root) {
       });
     }),
   );
+}
+
+
+// Recharts labels are SVG text. html-to-image can silently omit these glyphs
+// from its foreignObject snapshot even while the bars and slices render.
+// Duplicate only their visible text as positioned HTML for the export frame.
+function overlaySvgLabels(root) {
+  const rootRect = root.getBoundingClientRect();
+  const oldPosition = root.style.position;
+  const oldIsolation = root.style.isolation;
+  if (getComputedStyle(root).position === "static") {
+    root.style.position = "relative";
+  }
+  root.style.isolation = "isolate";
+
+  const overlay = document.createElement("div");
+  overlay.setAttribute("data-pdf-svg-label-overlay", "true");
+  overlay.style.cssText = [
+    "position:absolute", "inset:0 auto auto 0", "width:100%",
+    "height:100%", "pointer-events:none", "z-index:9999",
+    "overflow:visible", "background:transparent",
+  ].join(";");
+
+  let count = 0;
+  const labels = root.querySelectorAll("svg text");
+  labels.forEach((svgText) => {
+    if (!svgText.closest(".recharts-wrapper, .recharts-responsive-container, .recharts-surface")) return;
+    const value = svgText.textContent?.replace(/\s+/g, " ").trim();
+    if (!value) return;
+    const css = getComputedStyle(svgText);
+    if (css.display === "none" || css.visibility === "hidden" || Number(css.opacity) === 0) return;
+    const box = svgText.getBoundingClientRect();
+    if (!Number.isFinite(box.left) || !Number.isFinite(box.top) || box.width < 1 || box.height < 1) return;
+    const html = document.createElement("span");
+    html.textContent = value;
+    html.style.cssText = [
+      "position:absolute", "display:block", "margin:0", "padding:0",
+      "box-sizing:border-box", "white-space:nowrap", "pointer-events:none",
+      "text-rendering:geometricPrecision", "overflow:visible",
+      "font-family:" + (css.fontFamily || "Arial,sans-serif"),
+      "font-size:" + (css.fontSize || "12px"),
+      "font-weight:" + (css.fontWeight || "400"),
+      "font-style:" + (css.fontStyle || "normal"),
+      "line-height:" + Math.max(1, box.height) + "px",
+      "color:" + (css.fill && css.fill !== "none" ? css.fill : css.color || "#FFFFFF"),
+      "left:" + (box.left - rootRect.left + root.scrollLeft) + "px",
+      "top:" + (box.top - rootRect.top + root.scrollTop) + "px",
+      "height:" + Math.max(1, box.height) + "px",
+    ].join(";");
+    overlay.appendChild(html);
+    count += 1;
+  });
+  root.appendChild(overlay);
+  root.classList.add("pdf-has-svg-overlay");
+  console.info(`[Atomos PDF] ${count} SVG chart labels copied into snapshot.`);
+  return () => {
+    overlay.remove();
+    root.classList.remove("pdf-has-svg-overlay");
+    root.style.position = oldPosition;
+    root.style.isolation = oldIsolation;
+  };
 }
 
 function getCaptureSize(root) {
@@ -214,6 +277,7 @@ export async function exportDashboardPdf({
   const style = createRuntimeStyle(rootId);
   const originalTitle = document.title;
   root.classList.add("pdf-export-mode");
+  let removeOverlay = null;
 
   const progress = (value, message) => {
     emit(onProgress, value, message);
@@ -231,7 +295,9 @@ export async function exportDashboardPdf({
     await waitForPdfUiPaint();
     await wait(220);
 
-    progress(55, "Capturing full page snapshot...");
+    removeOverlay = overlaySvgLabels(root);
+    await waitForPdfUiPaint();
+    progress(55, "Capturing full page snapshot with chart labels...");
     const image = await captureWholeRoot(root);
 
     progress(82, "Generating single-page PDF...");
@@ -241,6 +307,7 @@ export async function exportDashboardPdf({
     progress(100, "PDF ready. Download started.");
     await wait(600);
   } finally {
+    removeOverlay?.();
     document.title = originalTitle;
     root.classList.remove("pdf-export-mode");
     style.remove();
