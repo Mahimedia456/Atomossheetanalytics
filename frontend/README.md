@@ -1,18 +1,11 @@
-# Stock stacked chart + PDF layout correction
+Fast single-page PDF export patch for Atomos dashboard.
 
-Apply **over your current source**; no full report page overwrite.
+Replace file:
+  src/utils/dashboardPdfExport.js
 
-- Removes duplicate numeric labels appearing inside and above stacked segments.
-- Places a single line of `colored square + white value` labels to the right of each entire Stock Sent by Device Name stacked bar.
-- Preserves hover, chart colors, chart data and report layout.
-- Removes the earlier PDF SVG-to-HTML label mirroring invocation that can duplicate/offset chart text in export.
-- Backs up all three affected original files before modification.
-
-Run from frontend root:
-
-```powershell
-Set-ExecutionPolicy -Scope Process Bypass -Force
-.\APPLY-STACK-PDF-FIX.ps1
-```
-
-The patch intentionally aborts if the stock chart source has an unexpected structure. It does not claim a browser/PDF validation.
+What it does:
+- Captures the visible report dashboard as one full-page image.
+- Hides filters and tables in export.
+- Keeps charts exactly as seen on screen, including visible values.
+- Generates a single long PDF page instead of multiple split pages.
+- Much faster than section-by-section rendering.
