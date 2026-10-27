@@ -1,12 +1,13 @@
-# Atomos PDF full-page chart labels fix
+Atomos PDF Chart Value Fix (vector text)
 
-Replace `src/utils/dashboardPdfExport.js` in frontend. Preserves existing
-single full-page PDF capture and copies all Recharts SVG text (including
-pie, donut, horizontal and vertical bar value labels) into temporary HTML
-overlays at the same screen coordinates during export.
+Replace: src/utils/dashboardPdfExport.js
 
-Filters and tables remain hidden in the PDF. No chart page or backend files
-are modified. After replacement run `npm run build` and test a PDF export.
+Unlike the previous HTML overlay, this patch reads numerical Recharts SVG labels
+before capture and draws those exact values as white vector text ON TOP of the
+full-page PDF snapshot using jsPDF. It does not alter the web chart design,
+PDF full-page format, filters, or tables.
 
-The live dashboard is not modified after export: overlay and temporary styles
-are cleaned up even on error. This is source-validated, not browser-verified.
+Test: npm run build, then export Global RMA PDF.
+Open browser console for [Atomos PDF] Found N chart value labels.
+If N is 0, chart values are not SVG <text> elements; share a current chart
+component source for exact renderer targeting.

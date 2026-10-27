@@ -102,8 +102,6 @@ function createRuntimeStyle(rootId) {
       caret-color:transparent!important;
       scroll-behavior:auto!important;
     }
-    #${safeId}.pdf-export-mode.pdf-has-svg-overlay .recharts-surface text{visibility:hidden!important}
-    #${safeId}.pdf-export-mode [data-pdf-svg-label-overlay] span{visibility:visible!important}
     #${safeId}.pdf-export-mode .recharts-wrapper,
     #${safeId}.pdf-export-mode .recharts-surface,
     #${safeId}.pdf-export-mode svg{overflow:visible!important}
@@ -127,64 +125,37 @@ async function waitForImages(root) {
 }
 
 
-// Recharts labels are SVG text. html-to-image can silently omit these glyphs
-// from its foreignObject snapshot even while the bars and slices render.
-// Duplicate only their visible text as positioned HTML for the export frame.
-function overlaySvgLabels(root) {
+// Read the real on-screen numeric SVG labels before image capture.
+// jsPDF draws them as crisp vector text *after* the raster screenshot, so
+// html-to-image cannot silently discard the numbers. No UI elements change.
+function collectChartValueLabels(root) {
   const rootRect = root.getBoundingClientRect();
-  const oldPosition = root.style.position;
-  const oldIsolation = root.style.isolation;
-  if (getComputedStyle(root).position === "static") {
-    root.style.position = "relative";
+  const labels = [];
+  for (const element of root.querySelectorAll(".recharts-wrapper svg text")) {
+    const value = (element.textContent || "").replace(/\s+/g, " ").trim();
+    if (!value || !/\d/.test(value)) continue;
+    // Axis ticks are deliberately excluded: only actual data labels.
+    if (element.closest(".recharts-cartesian-axis, .recharts-legend-wrapper")) continue;
+    const classes = element.getAttribute("class") || "";
+    const isLabel = element.closest(".recharts-label-list, .recharts-pie-labels, .recharts-label") ||
+      /recharts-(?:pie-label|label)/.test(classes) ||
+      // Custom label renderers often produce plain <text> without a class.
+      (!element.closest(".recharts-cartesian-grid") && !element.closest(".recharts-cartesian-axis"));
+    if (!isLabel) continue;
+    const style = getComputedStyle(element);
+    if (style.display === "none" || style.visibility === "hidden" || Number(style.opacity) === 0) continue;
+    const rect = element.getBoundingClientRect();
+    if (!rect.width || !rect.height || rect.bottom < rootRect.top || rect.top > rootRect.bottom) continue;
+    labels.push({
+      value,
+      x: rect.left - rootRect.left + root.scrollLeft,
+      y: rect.top - rootRect.top + root.scrollTop,
+      height: rect.height,
+      fontPx: parseFloat(style.fontSize) || Math.max(10, rect.height * 0.8),
+    });
   }
-  root.style.isolation = "isolate";
-
-  const overlay = document.createElement("div");
-  overlay.setAttribute("data-pdf-svg-label-overlay", "true");
-  overlay.style.cssText = [
-    "position:absolute", "inset:0 auto auto 0", "width:100%",
-    "height:100%", "pointer-events:none", "z-index:9999",
-    "overflow:visible", "background:transparent",
-  ].join(";");
-
-  let count = 0;
-  const labels = root.querySelectorAll("svg text");
-  labels.forEach((svgText) => {
-    if (!svgText.closest(".recharts-wrapper, .recharts-responsive-container, .recharts-surface")) return;
-    const value = svgText.textContent?.replace(/\s+/g, " ").trim();
-    if (!value) return;
-    const css = getComputedStyle(svgText);
-    if (css.display === "none" || css.visibility === "hidden" || Number(css.opacity) === 0) return;
-    const box = svgText.getBoundingClientRect();
-    if (!Number.isFinite(box.left) || !Number.isFinite(box.top) || box.width < 1 || box.height < 1) return;
-    const html = document.createElement("span");
-    html.textContent = value;
-    html.style.cssText = [
-      "position:absolute", "display:block", "margin:0", "padding:0",
-      "box-sizing:border-box", "white-space:nowrap", "pointer-events:none",
-      "text-rendering:geometricPrecision", "overflow:visible",
-      "font-family:" + (css.fontFamily || "Arial,sans-serif"),
-      "font-size:" + (css.fontSize || "12px"),
-      "font-weight:" + (css.fontWeight || "400"),
-      "font-style:" + (css.fontStyle || "normal"),
-      "line-height:" + Math.max(1, box.height) + "px",
-      "color:" + (css.fill && css.fill !== "none" ? css.fill : css.color || "#FFFFFF"),
-      "left:" + (box.left - rootRect.left + root.scrollLeft) + "px",
-      "top:" + (box.top - rootRect.top + root.scrollTop) + "px",
-      "height:" + Math.max(1, box.height) + "px",
-    ].join(";");
-    overlay.appendChild(html);
-    count += 1;
-  });
-  root.appendChild(overlay);
-  root.classList.add("pdf-has-svg-overlay");
-  console.info(`[Atomos PDF] ${count} SVG chart labels copied into snapshot.`);
-  return () => {
-    overlay.remove();
-    root.classList.remove("pdf-has-svg-overlay");
-    root.style.position = oldPosition;
-    root.style.isolation = oldIsolation;
-  };
+  console.info(`[Atomos PDF] Found ${labels.length} chart value labels for PDF vector overlay.`);
+  return labels;
 }
 
 function getCaptureSize(root) {
@@ -232,7 +203,7 @@ async function captureWholeRoot(root) {
   };
 }
 
-function buildPdfFromImage(image, filename) {
+function buildPdfFromImage(image, filename, chartLabels = [], layoutWidth = image.width) {
   const pdfWidth = image.width + PDF_MARGIN * 2;
   const pdfHeight = image.height + PDF_MARGIN * 2;
 
@@ -257,6 +228,18 @@ function buildPdfFromImage(image, filename) {
     "FAST",
   );
 
+  // Crucial: draw chart numbers *after* addImage. This does not depend
+  // on browser SVG foreignObject capture and preserves the original PDF layout.
+  const scale = image.width / Math.max(1, layoutWidth);
+  pdf.setFont("helvetica", "bold");
+  pdf.setTextColor(255, 255, 255);
+  for (const label of chartLabels) {
+    const fontSize = Math.max(6, Math.min(24, label.fontPx * scale * 0.78));
+    pdf.setFontSize(fontSize);
+    pdf.text(label.value, PDF_MARGIN + label.x * scale,
+      PDF_MARGIN + (label.y + label.height * 0.84) * scale);
+  }
+
   const safe = String(filename).replace(/\.pdf$/i, "").trim() || "atomos-dashboard";
   pdf.save(`${safe}-${new Date().toISOString().slice(0, 10)}.pdf`);
 }
@@ -277,7 +260,6 @@ export async function exportDashboardPdf({
   const style = createRuntimeStyle(rootId);
   const originalTitle = document.title;
   root.classList.add("pdf-export-mode");
-  let removeOverlay = null;
 
   const progress = (value, message) => {
     emit(onProgress, value, message);
@@ -295,19 +277,19 @@ export async function exportDashboardPdf({
     await waitForPdfUiPaint();
     await wait(220);
 
-    removeOverlay = overlaySvgLabels(root);
+    const chartLabels = collectChartValueLabels(root);
+    const layoutWidth = getCaptureSize(root).width;
     await waitForPdfUiPaint();
     progress(55, "Capturing full page snapshot with chart labels...");
     const image = await captureWholeRoot(root);
 
     progress(82, "Generating single-page PDF...");
     await wait(60);
-    buildPdfFromImage(image, filename);
+    buildPdfFromImage(image, filename, chartLabels, layoutWidth);
 
     progress(100, "PDF ready. Download started.");
     await wait(600);
   } finally {
-    removeOverlay?.();
     document.title = originalTitle;
     root.classList.remove("pdf-export-mode");
     style.remove();
