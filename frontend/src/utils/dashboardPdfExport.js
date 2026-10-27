@@ -133,31 +133,44 @@ function collectChartValueLabels(root) {
   const labels = [];
   const scrollX = root.scrollLeft || 0;
   const scrollY = root.scrollTop || 0;
+  const seen = new Set();
 
+  // IMPORTANT: do not export axes, ticks or tooltip text as data labels.
+  // Recharts axis numbers look like chart values, but they must not be moved
+  // to the plotting area during PDF conversion.
   for (const element of root.querySelectorAll(".recharts-wrapper svg text")) {
-    // Capture data values, not X/Y axis ticks or legend text.
-    if (element.closest(".recharts-cartesian-axis, .recharts-cartesian-grid, .recharts-legend-wrapper")) continue;
+    if (element.closest(".recharts-cartesian-axis, .recharts-cartesian-grid, .recharts-legend-wrapper, .recharts-tooltip-wrapper")) continue;
     const value = (element.textContent || "").replace(/\s+/g, " ").trim();
     if (!value || !/\d/.test(value)) continue;
 
-    const style = getComputedStyle(element);
-    if (style.display === "none" || style.visibility === "hidden" || Number(style.opacity) === 0) continue;
-    const rect = element.getBoundingClientRect();
-    if (!(rect.width > 0 && rect.height > 0)) continue;
+    const css = getComputedStyle(element);
+    const weight = Number(css.fontWeight) || (/bold/i.test(css.fontWeight) ? 700 : 400);
+    const attrWeight = Number(element.getAttribute("font-weight")) || 0;
+    const isExplicitDataLabel = Boolean(element.closest(".recharts-label, .recharts-label-list, .recharts-pie-labels"));
+    // Our on-screen data labels use 700/800/900 weight.  Axis ticks are
+    // usually 400.  Do not infer values from arbitrary SVG text.
+    if (!isExplicitDataLabel && Math.max(weight, attrWeight) < 650) continue;
+    if (css.display === "none" || css.visibility === "hidden" || Number(css.opacity) === 0) continue;
 
-    // This uses the actual painted glyph location, including SVG transforms,
-    // so custom pie labels and Bar/LabelList renderers share one path.
+    const rect = element.getBoundingClientRect();
+    if (!Number.isFinite(rect.left) || !Number.isFinite(rect.top) || rect.width < 1 || rect.height < 1) continue;
+    const x = rect.left - rootRect.left + scrollX;
+    const y = rect.top - rootRect.top + scrollY;
+    const key = `${value}|${Math.round(x)}|${Math.round(y)}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+
     labels.push({
       value,
-      x: rect.left - rootRect.left + scrollX,
-      y: rect.top - rootRect.top + scrollY,
+      x,
+      y,
       width: rect.width,
       height: rect.height,
-      fontPx: parseFloat(style.fontSize) || 11,
-      weight: style.fontWeight,
+      fontPx: parseFloat(css.fontSize) || 11,
+      weight: Math.max(weight, attrWeight),
     });
   }
-  console.info(`[Atomos PDF] Chart data values found: ${labels.length}`);
+  console.info(`[Atomos PDF] Actual chart data labels: ${labels.length} (axis ticks excluded)`);
   return labels;
 }
 
@@ -231,8 +244,8 @@ async function embedVisibleValues(image, labels, layoutWidth) {
   for (const label of labels) {
     const x = label.x * scale;
     const y = label.y * scale;
-    const fontPx = Math.max(8, label.fontPx * scale);
-    context.font = `800 ${fontPx}px Arial, sans-serif`;
+    const fontPx = Math.max(1, label.fontPx * scale);
+    context.font = `${label.weight || 800} ${fontPx}px Arial, sans-serif`;
     context.lineWidth = Math.max(2, fontPx * 0.23);
     context.strokeStyle = "rgba(0,0,0,0.92)";
     context.fillStyle = "#FFFFFF";
