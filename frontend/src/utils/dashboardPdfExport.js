@@ -62,49 +62,21 @@ function updateLoader(loader, progress, message) {
   if (bar) bar.style.width = `${value}%`;
 }
 
+// The export overlay already blocks interaction. Changing body/html overflow
+// would remove the scrollbar and cause ResponsiveContainer charts to reflow.
 function lockPage() {
-  const html = document.documentElement;
-  const body = document.body;
-  const old = {
-    htmlOverflow: html.style.overflow,
-    bodyOverflow: body.style.overflow,
-    bodyTouch: body.style.touchAction,
-  };
-
-  html.style.setProperty("overflow", "hidden", "important");
-  body.style.setProperty("overflow", "hidden", "important");
-  body.style.setProperty("touch-action", "none", "important");
-
-  return () => {
-    html.style.overflow = old.htmlOverflow;
-    body.style.overflow = old.bodyOverflow;
-    body.style.touchAction = old.bodyTouch;
-  };
+  return () => {};
 }
 
 function createRuntimeStyle(rootId) {
   const style = document.createElement("style");
   const safeId = window.CSS?.escape ? window.CSS.escape(rootId) : rootId;
   style.textContent = `
-    #${safeId}.pdf-export-mode ${SKIP_SELECTOR}{display:none!important}
-    #${safeId}.pdf-export-mode [data-pdf-table='true']{display:none!important}
-    #${safeId}.pdf-export-mode .dashboard-filters{display:none!important}
-    #${safeId}.pdf-export-mode .no-print{display:none!important}
-    #${safeId}.pdf-export-mode [data-pdf-table-wrapper='true']{display:none!important}
-    #${safeId}.pdf-export-mode button,
-    #${safeId}.pdf-export-mode select,
-    #${safeId}.pdf-export-mode input,
-    #${safeId}.pdf-export-mode textarea{visibility:hidden!important}
-    #${safeId}.pdf-export-mode,
-    #${safeId}.pdf-export-mode *{
-      animation:none!important;
-      transition:none!important;
-      caret-color:transparent!important;
-      scroll-behavior:auto!important;
+    #${safeId}.pdf-export-mode ${SKIP_SELECTOR},
+    #${safeId}.pdf-export-mode [data-pdf-table='true'],
+    #${safeId}.pdf-export-mode [data-pdf-table-wrapper='true'] {
+      display: none !important;
     }
-    #${safeId}.pdf-export-mode .recharts-wrapper,
-    #${safeId}.pdf-export-mode .recharts-surface,
-    #${safeId}.pdf-export-mode svg{overflow:visible!important}
   `;
   document.head.appendChild(style);
   return style;
@@ -125,55 +97,6 @@ async function waitForImages(root) {
 }
 
 
-// Read the real on-screen numeric SVG labels before image capture.
-// jsPDF draws them as crisp vector text *after* the raster screenshot, so
-// html-to-image cannot silently discard the numbers. No UI elements change.
-function collectChartValueLabels(root) {
-  const rootRect = root.getBoundingClientRect();
-  const labels = [];
-  const scrollX = root.scrollLeft || 0;
-  const scrollY = root.scrollTop || 0;
-  const seen = new Set();
-
-  // IMPORTANT: do not export axes, ticks or tooltip text as data labels.
-  // Recharts axis numbers look like chart values, but they must not be moved
-  // to the plotting area during PDF conversion.
-  for (const element of root.querySelectorAll(".recharts-wrapper svg text")) {
-    if (element.closest(".recharts-cartesian-axis, .recharts-cartesian-grid, .recharts-legend-wrapper, .recharts-tooltip-wrapper")) continue;
-    const value = (element.textContent || "").replace(/\s+/g, " ").trim();
-    if (!value || !/\d/.test(value)) continue;
-
-    const css = getComputedStyle(element);
-    const weight = Number(css.fontWeight) || (/bold/i.test(css.fontWeight) ? 700 : 400);
-    const attrWeight = Number(element.getAttribute("font-weight")) || 0;
-    const isExplicitDataLabel = Boolean(element.closest(".recharts-label, .recharts-label-list, .recharts-pie-labels"));
-    // Our on-screen data labels use 700/800/900 weight.  Axis ticks are
-    // usually 400.  Do not infer values from arbitrary SVG text.
-    if (!isExplicitDataLabel && Math.max(weight, attrWeight) < 650) continue;
-    if (css.display === "none" || css.visibility === "hidden" || Number(css.opacity) === 0) continue;
-
-    const rect = element.getBoundingClientRect();
-    if (!Number.isFinite(rect.left) || !Number.isFinite(rect.top) || rect.width < 1 || rect.height < 1) continue;
-    const x = rect.left - rootRect.left + scrollX;
-    const y = rect.top - rootRect.top + scrollY;
-    const key = `${value}|${Math.round(x)}|${Math.round(y)}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-
-    labels.push({
-      value,
-      x,
-      y,
-      width: rect.width,
-      height: rect.height,
-      fontPx: parseFloat(css.fontSize) || 11,
-      weight: Math.max(weight, attrWeight),
-    });
-  }
-  console.info(`[Atomos PDF] Actual chart data labels: ${labels.length} (axis ticks excluded)`);
-  return labels;
-}
-
 function getCaptureSize(root) {
   const rect = root.getBoundingClientRect();
   return {
@@ -192,10 +115,11 @@ function getCaptureSize(root) {
 
 async function captureWholeRoot(root) {
   const { width, height } = getCaptureSize(root);
-  const pixelRatio = Math.min(1.25, window.devicePixelRatio || 1);
+  // Native CSS pixel resolution: fast, and doesn't scale SVG coordinates.
+  const pixelRatio = 1;
 
   const dataUrl = await toPng(root, {
-    cacheBust: true,
+    cacheBust: false,
     backgroundColor: "#000000",
     pixelRatio,
     width,
@@ -217,45 +141,6 @@ async function captureWholeRoot(root) {
     width: Math.ceil(width * pixelRatio),
     height: Math.ceil(height * pixelRatio),
   };
-}
-
-async function embedVisibleValues(image, labels, layoutWidth) {
-  if (!labels.length) {
-    console.warn("[Atomos PDF] No chart values found. Export image will be unchanged.");
-    return image;
-  }
-  const bitmap = new Image();
-  bitmap.src = image.dataUrl;
-  await new Promise((resolve, reject) => {
-    if (bitmap.complete && bitmap.naturalWidth) return resolve();
-    bitmap.onload = resolve;
-    bitmap.onerror = reject;
-  });
-  const canvas = document.createElement("canvas");
-  canvas.width = bitmap.naturalWidth;
-  canvas.height = bitmap.naturalHeight;
-  const context = canvas.getContext("2d", { alpha: false });
-  if (!context) throw new Error("Chart value raster overlay could not initialize.");
-  context.drawImage(bitmap, 0, 0);
-  const scale = image.width / Math.max(1, layoutWidth);
-  context.textAlign = "left";
-  context.textBaseline = "top";
-  context.lineJoin = "round";
-  for (const label of labels) {
-    const x = label.x * scale;
-    const y = label.y * scale;
-    const fontPx = Math.max(1, label.fontPx * scale);
-    context.font = `${label.weight || 800} ${fontPx}px Arial, sans-serif`;
-    context.lineWidth = Math.max(2, fontPx * 0.23);
-    context.strokeStyle = "rgba(0,0,0,0.92)";
-    context.fillStyle = "#FFFFFF";
-    context.strokeText(label.value, x, y);
-    context.fillText(label.value, x, y);
-  }
-  const result = { ...image, dataUrl: canvas.toDataURL("image/jpeg", 0.91), format: "JPEG" };
-  canvas.width = 1;
-  canvas.height = 1;
-  return result;
 }
 
 function buildPdfFromImage(image, filename) {
@@ -309,12 +194,11 @@ export async function exportDashboardPdf({
     await waitForPdfUiPaint();
     await wait(220);
 
-    const chartLabels = collectChartValueLabels(root);
-    const layoutWidth = getCaptureSize(root).width;
+    // Capture the existing on-screen DOM as-is. No manual chart label copying,
+    // calculated values, vector text, or position adjustments.
     await waitForPdfUiPaint();
-    progress(55, "Capturing full page snapshot with chart labels...");
-    const capturedImage = await captureWholeRoot(root);
-    const image = await embedVisibleValues(capturedImage, chartLabels, layoutWidth);
+    progress(55, "Capturing the dashboard exactly as displayed...");
+    const image = await captureWholeRoot(root);
 
     progress(82, "Generating single-page PDF...");
     await wait(60);
