@@ -131,30 +131,33 @@ async function waitForImages(root) {
 function collectChartValueLabels(root) {
   const rootRect = root.getBoundingClientRect();
   const labels = [];
+  const scrollX = root.scrollLeft || 0;
+  const scrollY = root.scrollTop || 0;
+
   for (const element of root.querySelectorAll(".recharts-wrapper svg text")) {
+    // Capture data values, not X/Y axis ticks or legend text.
+    if (element.closest(".recharts-cartesian-axis, .recharts-cartesian-grid, .recharts-legend-wrapper")) continue;
     const value = (element.textContent || "").replace(/\s+/g, " ").trim();
     if (!value || !/\d/.test(value)) continue;
-    // Axis ticks are deliberately excluded: only actual data labels.
-    if (element.closest(".recharts-cartesian-axis, .recharts-legend-wrapper")) continue;
-    const classes = element.getAttribute("class") || "";
-    const isLabel = element.closest(".recharts-label-list, .recharts-pie-labels, .recharts-label") ||
-      /recharts-(?:pie-label|label)/.test(classes) ||
-      // Custom label renderers often produce plain <text> without a class.
-      (!element.closest(".recharts-cartesian-grid") && !element.closest(".recharts-cartesian-axis"));
-    if (!isLabel) continue;
+
     const style = getComputedStyle(element);
     if (style.display === "none" || style.visibility === "hidden" || Number(style.opacity) === 0) continue;
     const rect = element.getBoundingClientRect();
-    if (!rect.width || !rect.height || rect.bottom < rootRect.top || rect.top > rootRect.bottom) continue;
+    if (!(rect.width > 0 && rect.height > 0)) continue;
+
+    // This uses the actual painted glyph location, including SVG transforms,
+    // so custom pie labels and Bar/LabelList renderers share one path.
     labels.push({
       value,
-      x: rect.left - rootRect.left + root.scrollLeft,
-      y: rect.top - rootRect.top + root.scrollTop,
+      x: rect.left - rootRect.left + scrollX,
+      y: rect.top - rootRect.top + scrollY,
+      width: rect.width,
       height: rect.height,
-      fontPx: parseFloat(style.fontSize) || Math.max(10, rect.height * 0.8),
+      fontPx: parseFloat(style.fontSize) || 11,
+      weight: style.fontWeight,
     });
   }
-  console.info(`[Atomos PDF] Found ${labels.length} chart value labels for PDF vector overlay.`);
+  console.info(`[Atomos PDF] Chart data values found: ${labels.length}`);
   return labels;
 }
 
@@ -203,10 +206,48 @@ async function captureWholeRoot(root) {
   };
 }
 
-function buildPdfFromImage(image, filename, chartLabels = [], layoutWidth = image.width) {
+async function embedVisibleValues(image, labels, layoutWidth) {
+  if (!labels.length) {
+    console.warn("[Atomos PDF] No chart values found. Export image will be unchanged.");
+    return image;
+  }
+  const bitmap = new Image();
+  bitmap.src = image.dataUrl;
+  await new Promise((resolve, reject) => {
+    if (bitmap.complete && bitmap.naturalWidth) return resolve();
+    bitmap.onload = resolve;
+    bitmap.onerror = reject;
+  });
+  const canvas = document.createElement("canvas");
+  canvas.width = bitmap.naturalWidth;
+  canvas.height = bitmap.naturalHeight;
+  const context = canvas.getContext("2d", { alpha: false });
+  if (!context) throw new Error("Chart value raster overlay could not initialize.");
+  context.drawImage(bitmap, 0, 0);
+  const scale = image.width / Math.max(1, layoutWidth);
+  context.textAlign = "left";
+  context.textBaseline = "top";
+  context.lineJoin = "round";
+  for (const label of labels) {
+    const x = label.x * scale;
+    const y = label.y * scale;
+    const fontPx = Math.max(8, label.fontPx * scale);
+    context.font = `800 ${fontPx}px Arial, sans-serif`;
+    context.lineWidth = Math.max(2, fontPx * 0.23);
+    context.strokeStyle = "rgba(0,0,0,0.92)";
+    context.fillStyle = "#FFFFFF";
+    context.strokeText(label.value, x, y);
+    context.fillText(label.value, x, y);
+  }
+  const result = { ...image, dataUrl: canvas.toDataURL("image/jpeg", 0.91), format: "JPEG" };
+  canvas.width = 1;
+  canvas.height = 1;
+  return result;
+}
+
+function buildPdfFromImage(image, filename) {
   const pdfWidth = image.width + PDF_MARGIN * 2;
   const pdfHeight = image.height + PDF_MARGIN * 2;
-
   const pdf = new jsPDF({
     orientation: pdfWidth >= pdfHeight ? "landscape" : "portrait",
     unit: "px",
@@ -214,32 +255,10 @@ function buildPdfFromImage(image, filename, chartLabels = [], layoutWidth = imag
     compress: true,
     hotfixes: ["px_scaling"],
   });
-
   pdf.setFillColor(0, 0, 0);
   pdf.rect(0, 0, pdfWidth, pdfHeight, "F");
-  pdf.addImage(
-    image.dataUrl,
-    "PNG",
-    PDF_MARGIN,
-    PDF_MARGIN,
-    image.width,
-    image.height,
-    undefined,
-    "FAST",
-  );
-
-  // Crucial: draw chart numbers *after* addImage. This does not depend
-  // on browser SVG foreignObject capture and preserves the original PDF layout.
-  const scale = image.width / Math.max(1, layoutWidth);
-  pdf.setFont("helvetica", "bold");
-  pdf.setTextColor(255, 255, 255);
-  for (const label of chartLabels) {
-    const fontSize = Math.max(6, Math.min(24, label.fontPx * scale * 0.78));
-    pdf.setFontSize(fontSize);
-    pdf.text(label.value, PDF_MARGIN + label.x * scale,
-      PDF_MARGIN + (label.y + label.height * 0.84) * scale);
-  }
-
+  pdf.addImage(image.dataUrl, image.format || "PNG", PDF_MARGIN, PDF_MARGIN,
+    image.width, image.height, undefined, "FAST");
   const safe = String(filename).replace(/\.pdf$/i, "").trim() || "atomos-dashboard";
   pdf.save(`${safe}-${new Date().toISOString().slice(0, 10)}.pdf`);
 }
@@ -281,11 +300,12 @@ export async function exportDashboardPdf({
     const layoutWidth = getCaptureSize(root).width;
     await waitForPdfUiPaint();
     progress(55, "Capturing full page snapshot with chart labels...");
-    const image = await captureWholeRoot(root);
+    const capturedImage = await captureWholeRoot(root);
+    const image = await embedVisibleValues(capturedImage, chartLabels, layoutWidth);
 
     progress(82, "Generating single-page PDF...");
     await wait(60);
-    buildPdfFromImage(image, filename, chartLabels, layoutWidth);
+    buildPdfFromImage(image, filename);
 
     progress(100, "PDF ready. Download started.");
     await wait(600);
